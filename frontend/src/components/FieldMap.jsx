@@ -11,8 +11,9 @@ const ndviDate = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
 const NDVI = `${GIBS}/MODIS_Terra_NDVI_8Day/default/${ndviDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png`
 const LABELS = 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'
 
-// The 48 contiguous states only.
-const US_VIEW = { center: [38.6, -94.5], zoom: 5 }
+// The 48 contiguous states only. Phones start zoomed out, with the US above the bottom sheet.
+const NARROW = typeof window !== 'undefined' && window.innerWidth < 700
+const US_VIEW = NARROW ? { center: [30.5, -96.5], zoom: 3 } : { center: [38.6, -94.5], zoom: 5 }
 const US_BOUNDS = [
   [22, -128],
   [51.5, -63],
@@ -131,7 +132,7 @@ export default function FieldMap({ point, onPick, onContinue }) {
         className="map"
         center={US_VIEW.center}
         zoom={US_VIEW.zoom}
-        minZoom={4}
+        minZoom={3}
         maxZoom={10}
         maxBounds={US_BOUNDS}
         maxBoundsViscosity={0.8}
@@ -173,7 +174,7 @@ export default function FieldMap({ point, onPick, onContinue }) {
         )}
       </MapContainer>
 
-      <aside className="map-panel screen">
+      <aside className={`map-panel screen${point ? ' has-point' : ''}`}>
         <h1 className="display">Every field has a year.</h1>
         <p className="lede">
           Pick a field in the lower 48. We line up two decades of NASA and USDA data against the

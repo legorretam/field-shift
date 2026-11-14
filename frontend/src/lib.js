@@ -54,4 +54,6 @@ export const segClass = (crop, id) => {
 
 const WATER_WORDS = { low: 'Low water', medium: 'Medium water', high: 'High water' }
 export const cropMeta = (crop) =>
-  [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen'].filter(Boolean).join(', ')
+  crop.group === 'fallow'
+    ? 'Nothing planted'
+    : [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen'].filter(Boolean).join(', ')

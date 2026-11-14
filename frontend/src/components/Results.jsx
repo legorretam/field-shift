@@ -504,7 +504,8 @@ function strategyLabel(s, fit, best, cropById) {
 // The board as a real table, for screen readers.
 function ClimateTable({ months, frost, heat, place }) {
   return (
-    <table className="sr-only">
+    <div className="sr-only">
+    <table>
       <caption>Monthly climate averages for {place}</caption>
       <thead>
         <tr>
@@ -529,5 +530,6 @@ function ClimateTable({ months, frost, heat, place }) {
         ))}
       </tbody>
     </table>
+    </div>
   )
 }

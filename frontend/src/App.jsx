@@ -57,8 +57,17 @@ export default function App() {
         <a className="brand" href="/" aria-label="Field Shift, start over">
           <span className="brand-mark" aria-hidden="true">
             <i /><i /><i />
+            {/* A small blue flower growing at the end of the middle row. */}
+            <svg className="brand-bloom" viewBox="0 0 20 20">
+              <circle cx="10" cy="5" r="4.2" />
+              <circle cx="14.76" cy="8.45" r="4.2" />
+              <circle cx="12.94" cy="14.05" r="4.2" />
+              <circle cx="7.06" cy="14.05" r="4.2" />
+              <circle cx="5.24" cy="8.45" r="4.2" />
+              <circle className="brand-bloom-eye" cx="10" cy="10" r="2.6" />
+            </svg>
           </span>
-          Field Shift
+          <span className="brand-word">Field Shift</span>
         </a>
         <nav className="steps" aria-label="Progress">
           <ol>

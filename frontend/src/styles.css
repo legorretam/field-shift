@@ -118,8 +118,12 @@ input {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -280,9 +284,25 @@ input[type='search']:focus {
   white-space: nowrap;
 }
 .brand-mark {
+  position: relative;
   display: grid;
   gap: 3px;
   width: 24px;
+}
+.brand-bloom {
+  position: absolute;
+  top: 6.5px;
+  left: calc(72% + 2px);
+  width: 8px;
+  height: 8px;
+  fill: #6f9fe0;
+  transition: transform 700ms var(--ease);
+}
+.brand-bloom-eye {
+  fill: #f2cf63;
+}
+.brand:hover .brand-bloom {
+  transform: rotate(72deg) scale(1.25);
 }
 .brand-mark i {
   height: 5px;
@@ -844,6 +864,7 @@ input[type='range']:active::-webkit-slider-thumb {
 .form-actions {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 20px;
   padding-top: 8px;
@@ -943,6 +964,7 @@ input[type='range']:active::-webkit-slider-thumb {
   margin-top: 6px;
 }
 .board-scroll {
+  position: relative;
   overflow-x: auto;
   margin: 0 -32px;
   padding: 44px 32px 8px;
@@ -1716,6 +1738,49 @@ input[type='range']:active::-webkit-slider-thumb {
 
 /* ---------- Small screens ---------- */
 
+@media (max-width: 640px) {
+  .crop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .crop-tile {
+    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 1px;
+    align-items: center;
+    padding: 8px 10px;
+  }
+  .crop-swatch {
+    grid-row: 1 / span 2;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+  }
+  .crop-tile-name {
+    font-size: 13px;
+  }
+  .crop-tile-meta {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .crop-check {
+    top: 6px;
+    right: 6px;
+    width: 16px;
+    height: 16px;
+  }
+  .crop-tile:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 440px) {
+  .brand-word {
+    display: none;
+  }
+}
+
 @media (max-width: 1180px) {
   .topbar-side > span:first-child {
     display: none;
@@ -1741,8 +1806,12 @@ input[type='range']:active::-webkit-slider-thumb {
     justify-self: end;
   }
   .steps li + li::before {
-    width: 14px;
+    width: 12px;
     margin: 0 2px;
+  }
+  .step {
+    padding: 0 6px;
+    gap: 6px;
   }
   .step:not([aria-current='step']) .step-label {
     display: none;
@@ -1751,11 +1820,29 @@ input[type='range']:active::-webkit-slider-thumb {
     top: auto;
     left: 12px;
     right: 12px;
-    bottom: 12px;
+    bottom: 30px;
     width: auto;
-    max-height: 62vh;
-    padding: 24px 20px;
+    max-height: 60vh;
+    padding: 22px 20px;
     gap: 14px;
+    border-radius: 18px;
+  }
+  .map-panel .display {
+    font-size: var(--fs-2xl);
+  }
+  /* Once a field is picked, the sheet shows only what the next step needs. */
+  .map-panel.has-point .display,
+  .map-panel.has-point .toggle,
+  .map-panel.has-point .cell-note {
+    display: none;
+  }
+  .map-panel.has-point .picked {
+    padding-top: 0;
+    border-top: 0;
+    gap: 8px;
+  }
+  .map-panel.has-point .picked-name {
+    font-size: var(--fs-xl);
   }
   .map-panel .lede,
   .ndvi-key {
@@ -1775,6 +1862,10 @@ input[type='range']:active::-webkit-slider-thumb {
   .results-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .facts {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0 18px;
   }
   .fact + .fact {
     padding-left: 0;
