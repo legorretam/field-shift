@@ -94,6 +94,15 @@ a {
   text-underline-offset: 3px;
 }
 
+html {
+  accent-color: var(--alfalfa);
+  scrollbar-color: var(--ink-3) var(--ground);
+}
+
+input {
+  caret-color: var(--alfalfa);
+}
+
 ::selection {
   background: var(--cereal);
   color: var(--ink);
@@ -318,7 +327,8 @@ input[type='search']:focus {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  min-height: 44px;
+  padding: 0 12px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -343,7 +353,10 @@ input[type='search']:focus {
   border: 1.5px solid currentColor;
   font-size: 11px;
   font-weight: 600;
-  transition: all 300ms var(--ease);
+  transition:
+    background-color 300ms var(--ease),
+    border-color 300ms var(--ease),
+    color 300ms var(--ease);
 }
 .is-reached .step {
   color: var(--ink);
@@ -936,12 +949,12 @@ input[type='range']:active::-webkit-slider-thumb {
 }
 .board {
   --label-w: clamp(170px, 15vw, 210px);
-  --score-w: clamp(236px, 18vw, 256px);
+  --score-w: clamp(272px, 20vw, 288px);
   --cols: calc(100% - var(--label-w) - var(--score-w));
   position: relative;
   display: grid;
   grid-template-columns: var(--label-w) repeat(12, minmax(0, 1fr)) var(--score-w);
-  min-width: 1000px;
+  min-width: 1040px;
 }
 .col {
   grid-row: 1 / -1;
@@ -1121,7 +1134,7 @@ input[type='range']:active::-webkit-slider-thumb {
 }
 .t-lo {
   top: calc(100% + 5px);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 
 .rain-bar {
@@ -1151,7 +1164,7 @@ input[type='range']:active::-webkit-slider-thumb {
   transform: translateX(-50%);
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--rain);
+  color: var(--aquifer);
   line-height: 1;
 }
 .plot.is-on .rain-bar {
@@ -1257,20 +1270,14 @@ input[type='range']:active::-webkit-slider-thumb {
   padding: 0 18px 0 16px;
   position: relative;
 }
-.strat-label::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--ink);
-  transform: scaleY(0);
-  transition: transform 320ms var(--ease);
+.strat-name {
+  transition: color 200ms var(--ease);
 }
-.strat[aria-pressed='true'] .strat-label::before {
-  transform: scaleY(1);
+.strat:not([aria-pressed='true']) .strat-name {
+  color: var(--ink-2);
+}
+.strat:hover .strat-name {
+  color: var(--ink);
 }
 .strat-name {
   font-weight: 600;
@@ -1589,6 +1596,59 @@ input[type='range']:active::-webkit-slider-thumb {
   gap: 4px;
 }
 
+/* Sample-data notice */
+.sample-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 36px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px dashed var(--ink-3);
+  background: var(--paper);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  max-width: 78ch;
+}
+.sample-note b {
+  color: var(--ink);
+  font-weight: 650;
+}
+.sample-note-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--heat);
+}
+
+/* Board keyboard focus and mobile reading */
+.board-scroll:focus-visible {
+  outline: 2.5px solid var(--ink);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+.swipe-hint {
+  display: none;
+  margin: -6px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+.head-cell,
+.label-cell,
+.strat-label {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--ground);
+  /* Covers the scroll container's side padding so nothing peeks past the labels */
+  box-shadow: -32px 0 0 0 var(--ground);
+}
+.board {
+  touch-action: pan-x pan-y;
+}
+
 /* Loading and errors */
 .loading {
   min-height: 60vh;
@@ -1723,6 +1783,15 @@ input[type='range']:active::-webkit-slider-thumb {
   .board-scroll {
     margin: 0 -18px;
     padding: 44px 18px 8px;
+  }
+  .swipe-hint {
+    display: block;
+  }
+  .board {
+    --label-w: 132px;
+  }
+  .label-cell .row-sub {
+    display: none;
   }
   .detail-main {
     gap: 32px;

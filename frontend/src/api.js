@@ -20,7 +20,8 @@ export async function getCrops() {
 export async function analyze(body) {
   if (usingSample) {
     await wait(1100)
-    return { ...sample, location: { ...sample.location, lat: body.lat, lon: body.lon } }
+    // Sample data describes one real place. Never relabel it as the field the user picked.
+    return sample
   }
   const res = await fetch(`${API}/api/analyze`, {
     method: 'POST',

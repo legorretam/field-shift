@@ -12,8 +12,9 @@ const GROUP_LABELS = {
   fallow: 'Bare soil',
 }
 
-export default function Results({ status, error, result, point, crops, priorities, onRetry, onEdit }) {
-  const label = point?.label || result?.location?.label || 'Your field'
+export default function Results({ status, error, result, point, sample, crops, priorities, onRetry, onEdit }) {
+  // In sample mode the data belongs to the sample's place, so the page is titled with it.
+  const label = (sample ? result?.location?.label : point?.label) || result?.location?.label || 'Your field'
 
   if (status === 'loading') {
     return (
@@ -47,10 +48,19 @@ export default function Results({ status, error, result, point, crops, prioritie
     )
   }
 
-  return <Loaded result={result} label={label} crops={crops} priorities={priorities} onEdit={onEdit} />
+  return (
+    <Loaded
+      result={result}
+      label={label}
+      picked={sample ? point?.label : null}
+      crops={crops}
+      priorities={priorities}
+      onEdit={onEdit}
+    />
+  )
 }
 
-function Loaded({ result, label, crops, priorities, onEdit }) {
+function Loaded({ result, label, picked, crops, priorities, onEdit }) {
   const { climate, strategies, location } = result
   const fits = useMemo(
     () => Object.fromEntries(strategies.map((s) => [s.id, fitScore(s.scores, priorities)])),
@@ -63,6 +73,15 @@ function Loaded({ result, label, crops, priorities, onEdit }) {
 
   return (
     <section className="results screen">
+      {picked !== null && (
+        <p className="sample-note" role="note">
+          <span className="sample-note-dot" aria-hidden="true" />
+          <span>
+            <b>Sample data.</b> You picked {picked || 'a field'}. Until the live backend is connected, every
+            result shows the built-in example for {label}.
+          </span>
+        </p>
+      )}
       <header className="results-head">
         <div>
           <h1 className="display">{label}</h1>
@@ -79,9 +98,14 @@ function Loaded({ result, label, crops, priorities, onEdit }) {
       <div className="board-head">
         <div>
           <h2 className="h2">Your field’s year</h2>
-          <p className="lede">Point at any month to read it across the climate and all three rotations.</p>
+          <p className="lede">
+            Point at or tap any month to read it across the climate and all three rotations. With the
+            keyboard, focus the board and use the arrow keys.
+          </p>
         </div>
       </div>
+
+      <p className="swipe-hint" aria-hidden="true">Swipe sideways for every month. Tap a month to read it.</p>
 
       <YearBoard
         climate={climate}
@@ -91,6 +115,7 @@ function Loaded({ result, label, crops, priorities, onEdit }) {
         bestId={bestId}
         selected={selected}
         onSelect={setSelected}
+        place={label}
       />
 
       <StrategyDetail
@@ -121,10 +146,12 @@ function Loaded({ result, label, crops, priorities, onEdit }) {
   )
 }
 
-function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSelect }) {
+function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSelect, place }) {
   const boardRef = useRef(null)
   const lastHover = useRef(0)
   const [hover, setHover] = useState(null)
+  const [pinned, setPinned] = useState(null)
+  const active = hover ?? pinned
 
   const months = [...climate.monthly].sort((a, b) => a.month - b.month)
   const frost = new Set(climate.frost_risk_months || [])
@@ -146,29 +173,72 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
     ),
   ]
 
-  function onMove(e) {
+  function monthAt(clientX) {
     const heads = boardRef.current?.querySelectorAll('.month-head')
-    if (!heads?.length) return
+    if (!heads?.length) return null
     const first = heads[0].getBoundingClientRect()
     const last = heads[heads.length - 1].getBoundingClientRect()
-    const i = Math.floor(((e.clientX - first.left) / (last.right - first.left)) * 12)
-    if (i >= 0 && i < 12) {
-      lastHover.current = i
-      setHover(i)
-    } else setHover(null)
+    const i = Math.floor(((clientX - first.left) / (last.right - first.left)) * 12)
+    return i >= 0 && i < 12 ? i : null
   }
 
-  const shown = hover ?? lastHover.current
+  // Mouse reads on hover; touch and pen pin a month with a tap.
+  function onPointerMove(e) {
+    if (e.pointerType !== 'mouse') return
+    const i = monthAt(e.clientX)
+    if (i !== null) lastHover.current = i
+    setHover(i)
+  }
+  function onPointerDown(e) {
+    if (e.pointerType === 'mouse') return
+    const i = monthAt(e.clientX)
+    if (i === null) return
+    lastHover.current = i
+    setPinned((p) => (p === i ? null : i))
+  }
+  function onKeyDown(e) {
+    if (e.target !== e.currentTarget) return
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key]
+    if (step) {
+      e.preventDefault()
+      setPinned((p) => {
+        const next = p === null ? (step > 0 ? 0 : 11) : (p + step + 12) % 12
+        lastHover.current = next
+        return next
+      })
+    } else if (e.key === 'Escape') setPinned(null)
+  }
+
+  const shown = active ?? lastHover.current
   const hm = months[shown]
-  const on = (i) => (hover === i ? ' is-on' : '')
+  const on = (i) => (active === i ? ' is-on' : '')
+  const flags = [frost.has(hm.month) && 'frost risk', heat.has(hm.month) && 'heat stress'].filter(Boolean)
+  const spoken =
+    active === null
+      ? ''
+      : `${MONTH_NAMES[shown]}: ${Math.round(hm.precip_mm)} millimeters of rain, ${Math.round(hm.t_min_c)} to ${Math.round(
+          hm.t_max_c,
+        )} degrees, soil moisture ${hm.soil_moisture_root.toFixed(2)}${flags.length ? `, ${flags.join(' and ')}` : ''}. ` +
+        strategies
+          .map((s) => `${s.name}: ${cropInMonth(s, shown, cropById)}`)
+          .join('. ')
 
   return (
-    <div className="board-scroll">
+    <div
+      className="board-scroll"
+      tabIndex={0}
+      role="group"
+      aria-label={`Year board for ${place}. Use the left and right arrow keys to read each month.`}
+      onKeyDown={onKeyDown}
+    >
+      <ClimateTable months={months} frost={frost} heat={heat} place={place} />
+      <p className="sr-only" aria-live="polite">{spoken}</p>
       <div
         ref={boardRef}
         className="board"
-        onMouseMove={onMove}
-        onMouseLeave={() => setHover(null)}
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHover(null)}
+        onPointerDown={onPointerDown}
         style={{ gridTemplateRows: `auto 112px 112px 92px auto repeat(${strategies.length}, auto)` }}
       >
         {months.map((m, i) => (
@@ -180,7 +250,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
           />
         ))}
 
-        <div className={`readout${hover !== null ? ' is-on' : ''}`} style={{ '--m': shown }} aria-hidden="true">
+        <div className={`readout${active !== null ? ' is-on' : ''}`} style={{ '--m': shown }} aria-hidden="true">
           <strong>{MONTHS[shown]}</strong>
           <span>{Math.round(hm.precip_mm)} mm rain</span>
           <span>
@@ -192,16 +262,16 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
         </div>
 
         {/* Month header */}
-        <div className="cell head-cell" style={{ gridRow: 1 }}>
+        <div className="cell head-cell" aria-hidden="true" style={{ gridRow: 1 }}>
           <span className="tint-key"><i className="sw sw-frost" />Frost risk</span>
           <span className="tint-key"><i className="sw sw-heat" />Heat stress</span>
         </div>
         {months.map((m, i) => (
-          <div key={`h-${m.month}`} className={`cell month-head${on(i)}`} style={{ gridRow: 1, gridColumn: i + 2 }}>
+          <div key={`h-${m.month}`} className={`cell month-head${on(i)}`} aria-hidden="true" style={{ gridRow: 1, gridColumn: i + 2 }}>
             {MONTHS[m.month - 1]}
           </div>
         ))}
-        <div className="cell score-head" style={{ gridRow: 1 }}>
+        <div className="cell score-head" aria-hidden="true" style={{ gridRow: 1 }}>
           {SCORE_KEYS.map((k) => (
             <span key={k.key}>{k.label}</span>
           ))}
@@ -210,7 +280,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
         {/* Temperature */}
         <RowLabel row={2} title="Temperature" sub="°C, average low to high" />
         {months.map((m, i) => (
-          <div key={`t-${m.month}`} className={`cell plot${on(i)}`} style={{ gridRow: 2, gridColumn: i + 2, '--m': i }}>
+          <div key={`t-${m.month}`} className={`cell plot${on(i)}`} aria-hidden="true" style={{ gridRow: 2, gridColumn: i + 2, '--m': i }}>
             <span
               className="t-range"
               style={{ bottom: `${tPos(m.t_min_c)}%`, height: `${tPos(m.t_max_c) - tPos(m.t_min_c)}%` }}
@@ -225,7 +295,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
         {/* Rain */}
         <RowLabel row={3} title="Rain" sub="mm per month" />
         {months.map((m, i) => (
-          <div key={`r-${m.month}`} className={`cell plot${on(i)}`} style={{ gridRow: 3, gridColumn: i + 2, '--m': i }}>
+          <div key={`r-${m.month}`} className={`cell plot${on(i)}`} aria-hidden="true" style={{ gridRow: 3, gridColumn: i + 2, '--m': i }}>
             <span className="rain-bar" style={{ height: `${Math.max((m.precip_mm / rainMax) * 78, 2)}%` }}>
               <span className="rain-val">{Math.round(m.precip_mm)}</span>
             </span>
@@ -239,7 +309,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
           title="Soil moisture"
           sub={`root zone, ${Math.min(...soil).toFixed(2)} to ${Math.max(...soil).toFixed(2)}`}
         />
-        <div className="cell soil-plot" style={{ gridRow: 4 }}>
+        <div className="cell soil-plot" aria-hidden="true" style={{ gridRow: 4 }}>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <polyline points={soilLine} vectorEffect="non-scaling-stroke" />
           </svg>
@@ -273,6 +343,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
             className="strat"
             style={{ gridRow: 6 + idx, '--row': idx }}
             aria-pressed={selected === s.id}
+            aria-label={strategyLabel(s, fits[s.id], s.id === bestId, cropById)}
             onClick={() => onSelect(s.id)}
           >
             <span className="cell strat-label">
@@ -291,11 +362,11 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
                 const pieces = seasonPieces(q.season)
                 const widest = pieces.reduce((w, p, pi) => (p.span > pieces[w].span ? pi : w), 0)
                 return pieces.map((p, pi) => {
-                  const active = hover !== null && hover >= p.start && hover < p.start + p.span
+                  const lit = active !== null && active >= p.start && active < p.start + p.span
                   return (
                     <span
                       key={`${qi}-${pi}`}
-                      className={`seg ${segClass(crop, q.crop)}${active ? ' is-on' : ''}`}
+                      className={`seg ${segClass(crop, q.crop)}${lit ? ' is-on' : ''}`}
                       style={{ gridColumn: `${p.start + 1} / span ${p.span}` }}
                       title={`${name}, ${q.season}`}
                     >
@@ -332,7 +403,7 @@ function YearBoard({ climate, strategies, cropById, fits, bestId, selected, onSe
 
 function RowLabel({ row, title, sub }) {
   return (
-    <div className="cell label-cell" style={{ gridRow: row }}>
+    <div className="cell label-cell" style={{ gridRow: row }} aria-hidden="true">
       <span className="row-title">{title}</span>
       <span className="row-sub">{sub}</span>
     </div>
@@ -411,3 +482,52 @@ function FieldFacts({ result, cropById }) {
 }
 
 const signed = (n) => (n > 0 ? `+${n}` : `${n}`).replace('-', '−')
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+function cropInMonth(strategy, month, cropById) {
+  for (const q of strategy.sequence) {
+    if (seasonPieces(q.season).some((p) => month >= p.start && month < p.start + p.span)) {
+      return cropLabel(cropById[q.crop], q.crop)
+    }
+  }
+  return 'nothing planned'
+}
+
+function strategyLabel(s, fit, best, cropById) {
+  const plan = s.sequence.map((q) => `${cropLabel(cropById[q.crop], q.crop)} ${q.season.replace('-', ' to ')}`).join(', then ')
+  const scores = SCORE_KEYS.map((k) => `${k.label} ${s.scores[k.key]}`).join(', ')
+  const tags = [s.is_current && 'your rotation today', best && 'best match for your priorities'].filter(Boolean)
+  return `${s.name}${tags.length ? ` (${tags.join(', ')})` : ''}. ${plan}. Scores out of 100: ${scores}. Match ${fit} of 100.`
+}
+
+// The board as a real table, for screen readers.
+function ClimateTable({ months, frost, heat, place }) {
+  return (
+    <table className="sr-only">
+      <caption>Monthly climate averages for {place}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Month</th>
+          <th scope="col">Rain, mm</th>
+          <th scope="col">Low, °C</th>
+          <th scope="col">High, °C</th>
+          <th scope="col">Root-zone soil moisture</th>
+          <th scope="col">Risk</th>
+        </tr>
+      </thead>
+      <tbody>
+        {months.map((m) => (
+          <tr key={m.month}>
+            <th scope="row">{MONTH_NAMES[m.month - 1]}</th>
+            <td>{Math.round(m.precip_mm)}</td>
+            <td>{Math.round(m.t_min_c)}</td>
+            <td>{Math.round(m.t_max_c)}</td>
+            <td>{m.soil_moisture_root.toFixed(2)}</td>
+            <td>{[frost.has(m.month) && 'Frost', heat.has(m.month) && 'Heat'].filter(Boolean).join(', ') || 'None'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}

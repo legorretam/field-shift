@@ -108,6 +108,7 @@ export default function App() {
             error={error}
             result={result}
             point={point}
+            sample={usingSample}
             crops={crops}
             priorities={normalizePriorities(priorities)}
             onRetry={runAnalysis}
