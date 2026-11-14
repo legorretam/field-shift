@@ -15,6 +15,7 @@ Every external resource used in the project. Add new ones as you use them (requi
 - Open-Meteo Geocoding API, fallback place search: https://open-meteo.com/en/docs/geocoding-api
 - BigDataCloud free client-side reverse geocoding, county names: https://www.bigdatacloud.com
 - Map labels and state borders: Esri World Boundaries and Places
+- US state outlines for the lower-48 mask: US Census data via PublicaMundi MappingAPI on jsDelivr, https://github.com/PublicaMundi/MappingAPI
 
 ## Code libraries
 - React: https://react.dev

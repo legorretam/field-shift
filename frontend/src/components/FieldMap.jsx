@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { CircleMarker, MapContainer, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { useEffect, useMemo, useState } from 'react'
+import { CircleMarker, MapContainer, Polygon, Polyline, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { placeName, searchPlace } from '../api.js'
 import { formatCoord } from '../lib.js'
 import { ArrowIcon, SearchIcon } from './Icons.jsx'
@@ -19,6 +19,42 @@ const US_BOUNDS = [
 ]
 const inContiguousUS = (lat, lon) => lat >= 24.3 && lat <= 49.5 && lon >= -125 && lon <= -66.9
 const OUTSIDE_MSG = 'Field Shift covers farms in the 48 contiguous states. Pick a point inside them.'
+
+// State outlines (US Census data, public domain) for the lower-48 mask.
+const US_STATES_URL = 'https://cdn.jsdelivr.net/gh/PublicaMundi/MappingAPI@master/data/geojson/us-states.json'
+const NOT_LOWER_48 = new Set(['Alaska', 'Hawaii', 'Puerto Rico'])
+const WORLD_RING = [
+  [85, -180],
+  [85, 180],
+  [-85, 180],
+  [-85, -180],
+]
+
+// Fetches the 48 states once and returns their outer rings as [lat, lon] lists.
+// If the file can't load, the map simply shows without the mask.
+function useLower48() {
+  const [rings, setRings] = useState(null)
+  useEffect(() => {
+    let alive = true
+    fetch(US_STATES_URL)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((gj) => {
+        const out = []
+        for (const f of gj.features) {
+          if (NOT_LOWER_48.has(f.properties?.name)) continue
+          const g = f.geometry
+          const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates
+          for (const poly of polys) out.push(poly[0].map(([lon, lat]) => [lat, lon]))
+        }
+        if (alive) setRings(out)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+  return rings
+}
 
 // One NASA POWER cell is 0.5° latitude by 0.625° longitude.
 const cellAround = (lat, lon) => [
@@ -47,6 +83,9 @@ export default function FieldMap({ point, onPick, onContinue }) {
   const [searchMsg, setSearchMsg] = useState('')
   const [flyTarget, setFlyTarget] = useState(null)
   const [showNdvi, setShowNdvi] = useState(true)
+  const states = useLower48()
+  // Everything outside the lower 48 sits under a dark veil: a world-sized polygon with the states cut out.
+  const veil = useMemo(() => (states ? [WORLD_RING, ...states] : null), [states])
 
   async function onMapClick(lat, lon) {
     setSearchMsg('')
@@ -103,6 +142,20 @@ export default function FieldMap({ point, onPick, onContinue }) {
           <TileLayer url={NDVI} maxNativeZoom={9} opacity={0.72} attribution="MODIS NDVI: NASA GIBS" />
         )}
         <TileLayer url={LABELS} attribution="Labels and borders: Esri" />
+        {veil && (
+          <>
+            <Polygon
+              positions={veil}
+              interactive={false}
+              pathOptions={{ stroke: false, fillColor: '#0b1a26', fillOpacity: 0.78, fillRule: 'evenodd' }}
+            />
+            <Polyline
+              positions={states}
+              interactive={false}
+              pathOptions={{ color: '#f8f9f5', weight: 0.8, opacity: 0.5 }}
+            />
+          </>
+        )}
         <ClickToPick onClick={onMapClick} />
         <FlyTo target={flyTarget} />
         {point && (
