@@ -7,8 +7,10 @@ const PRIORITIES = [
   { key: 'income', label: 'Keep income steady', hint: 'A harvest you can sell nearby', color: 'var(--cereal)' },
 ]
 
-const OFF_SEASON_IDS = new Set(['wheat', 'barley'])
-const offSeasonFit = (c) => ['fallow', 'cover', 'legume', 'forage'].includes(c.group) || OFF_SEASON_IDS.has(c.id)
+// Crops that fit between two main-season crops. Perennials never do.
+const OFF_SEASON_IDS = new Set(['winter_wheat', 'rye'])
+const offSeasonFit = (c) =>
+  !c.perennial && (['fallow', 'cover', 'legume', 'forage'].includes(c.group) || OFF_SEASON_IDS.has(c.id))
 
 function CropPicker({ name, crops, value, onChange }) {
   return (

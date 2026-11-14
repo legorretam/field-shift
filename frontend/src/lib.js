@@ -56,7 +56,7 @@ const WATER_WORDS = { low: 'Low water', medium: 'Medium water', high: 'High wate
 export const cropMeta = (crop) =>
   crop.group === 'fallow'
     ? 'Nothing planted'
-    : [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen'].filter(Boolean).join(', ')
+    : [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen', crop.perennial && 'perennial'].filter(Boolean).join(', ')
 
 // NASA POWER native grid, the same one as backend/data/climate/power_climatology_2001_2025_conus.csv.
 // Cell centers sit at lat = 24 + 0.5 * i and lon = -125 + 0.625 * j (i, j whole numbers).

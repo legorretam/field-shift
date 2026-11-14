@@ -9,7 +9,8 @@ Every external resource used in the project. Add new ones as you use them (requi
 - NASA GRACE-FO groundwater storage (planned): https://grace.jpl.nasa.gov
 - USDA NRCS SSURGO via Soil Data Access (planned): https://sdmdataaccess.nrcs.usda.gov
 - USDA NASS Cropland Data Layer via CropScape (planned): https://nassgeodata.gmu.edu/CropScape/
-- Crop attributes (water need, nitrogen fixing): team-compiled table in `contract/crops.json`. TODO: cite FAO sources per crop.
+- Crop list: the 15 crops the team is researching, with their USDA Cropland Data Layer codes (`cdl_code`): https://www.nass.usda.gov/Research_and_Science/Cropland/docs/cdl_legend_colors.html
+- Crop attributes (water need, nitrogen fixing, perennial): first estimates in `contract/crops.json`. TODO: confirm and cite a source per crop.
 
 ## Services
 - Photon by Komoot (OpenStreetMap data), place search: https://photon.komoot.io

@@ -35,6 +35,9 @@
   --forage: #708232;
   --fiber: #9a8fb0;
   --fallow: #cdb698;
+  --tuber: #8c6a4f;
+  --fruit: #a8475f;
+  --tree: #2f5e46;
 
   /* Type */
   --sans: 'Geologica', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -1413,6 +1416,15 @@ input[type='range']:active::-webkit-slider-thumb {
 }
 .seg-fiber {
   background: radial-gradient(rgba(255, 255, 255, 0.6) 2px, transparent 2.5px) 0 0 / 12px 12px, var(--fiber);
+}
+.seg-tuber {
+  background: radial-gradient(rgba(255, 255, 255, 0.4) 2px, transparent 2.6px) 0 0 / 10px 10px, var(--tuber);
+}
+.seg-fruit {
+  background: radial-gradient(rgba(255, 255, 255, 0.5) 1.6px, transparent 2.1px) 0 0 / 9px 9px, var(--fruit);
+}
+.seg-tree {
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 8px), var(--tree);
 }
 .seg-fallow {
   background: radial-gradient(rgba(110, 80, 45, 0.35) 1px, transparent 1.5px) 0 0 / 7px 6px, var(--fallow);

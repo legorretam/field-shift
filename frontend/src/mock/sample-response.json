@@ -81,7 +81,7 @@
       "is_current": false,
       "sequence": [
         { "season": "May-Oct", "crop": "maize" },
-        { "season": "Nov-Mar", "crop": "cereal_rye" },
+        { "season": "Nov-Mar", "crop": "rye" },
         { "season": "Apr-Apr", "crop": "fallow" }
       ],
       "scores": { "water": 25, "soil": 65, "resilience": 45, "income": 65 },
@@ -109,11 +109,11 @@
       "is_current": false,
       "sequence": [
         { "season": "Jun-Oct", "crop": "sorghum" },
-        { "season": "Nov-Apr", "crop": "hairy_vetch" },
+        { "season": "Nov-Apr", "crop": "peas" },
         { "season": "May-May", "crop": "fallow" }
       ],
       "scores": { "water": 70, "soil": 70, "resilience": 72, "income": 55 },
-      "why": "Grain sorghum needs less water than corn and handles July heat better. Hairy vetch fixes nitrogen over winter, which can cut fertilizer for the next crop.",
+      "why": "Grain sorghum needs less water than corn and handles July heat better. Winter peas fix nitrogen over winter, which can cut fertilizer for the next crop.",
       "evidence": [
         { "dataset": "NASA GRACE-FO", "finding": "Falling groundwater makes low-water crops a hedge against future pumping limits." },
         { "dataset": "NASA POWER", "finding": "About 59% of the year's rain falls from May to August, matching sorghum's growing season." }
@@ -129,7 +129,7 @@
       ],
       "expert_review": [
         "Check that your planter and combine can handle sorghum",
-        "Hairy vetch can become a weed in wheat if it sets seed"
+        "Winter peas can become a weed in wheat if they set seed"
       ]
     }
   ],

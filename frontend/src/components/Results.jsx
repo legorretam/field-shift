@@ -9,6 +9,9 @@ const GROUP_LABELS = {
   cover: 'Cover crop',
   forage: 'Forage',
   fiber: 'Fiber',
+  tuber: 'Tuber',
+  fruit: 'Fruit, perennial',
+  tree: 'Trees, perennial',
   fallow: 'Bare soil',
 }
 
