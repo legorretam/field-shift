@@ -4,7 +4,6 @@ Every external resource used in the project. Add new ones as you use them (requi
 
 ## Data
 - NASA POWER, agroclimatology monthly climatology API: https://power.larc.nasa.gov/docs/services/api/
-- NASA POWER grid and trend files (MERRA-2), with the exact requests: `backend/data/climate/README.md`
 - NASA GIBS (Global Imagery Browse Services), Blue Marble and MODIS Terra NDVI 8-day tiles: https://gibs.earthdata.nasa.gov
 - NASA GRACE-FO groundwater storage (planned): https://grace.jpl.nasa.gov
 - USDA NRCS SSURGO via Soil Data Access (planned): https://sdmdataaccess.nrcs.usda.gov
@@ -12,7 +11,9 @@ Every external resource used in the project. Add new ones as you use them (requi
 - Crop attributes (water need, nitrogen fixing): team-compiled table in `contract/crops.json`. TODO: cite FAO sources per crop.
 
 ## Services
-- OpenStreetMap Nominatim, place search: https://nominatim.org
+- Photon by Komoot (OpenStreetMap data), place search: https://photon.komoot.io
+- Open-Meteo Geocoding API, fallback place search: https://open-meteo.com/en/docs/geocoding-api
+- BigDataCloud free client-side reverse geocoding, county names: https://www.bigdatacloud.com
 - Map labels and state borders: Esri World Boundaries and Places
 
 ## Code libraries

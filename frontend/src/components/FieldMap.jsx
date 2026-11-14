@@ -60,8 +60,9 @@ export default function FieldMap({ point, onPick, onContinue }) {
     if (place && !place.inUS) {
       onPick(null)
       setSearchMsg(OUTSIDE_MSG)
-    } else if (place?.label) {
-      onPick({ lat, lon, label: place.label })
+    } else {
+      // If the name lookup fails, the field still works; it is just named by its coordinates.
+      onPick({ lat, lon, label: place?.label || `Field at ${formatCoord(lat, lon)}` })
     }
   }
 

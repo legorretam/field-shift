@@ -32,34 +32,61 @@ export async function analyze(body) {
   return res.json()
 }
 
-// Place names come from OpenStreetMap (Nominatim). Free, keep requests low.
-export async function searchPlace(query) {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=us&q=${encodeURIComponent(query)}`
-  const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
-  if (!res.ok) throw new Error('Place search is not available right now')
-  const [hit] = await res.json()
-  if (!hit) return null
-  return { lat: Number(hit.lat), lon: Number(hit.lon), label: shortName(hit) }
+// Place names. Free, keyless services with CORS; every call has a timeout so the
+// interface never waits forever. Photon (OpenStreetMap data) answers searches,
+// BigDataCloud answers "what county is this point in".
+function fetchJson(url, ms = 6000) {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  return fetch(url, { signal: ctrl.signal })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    })
+    .finally(() => clearTimeout(timer))
 }
 
-// Returns { label, inUS } or null when the lookup fails.
+// Returns { lat, lon, label } for the best US match, or null.
+export async function searchPlace(query) {
+  try {
+    const data = await fetchJson(`https://photon.komoot.io/api/?limit=5&lang=en&q=${encodeURIComponent(query)}`)
+    const hit = (data.features || []).find((f) => f.properties?.countrycode === 'US')
+    if (hit) {
+      const [lon, lat] = hit.geometry.coordinates
+      const p = hit.properties
+      const county = p.county ? (/county|parish/i.test(p.county) ? p.county : `${p.county} County`) : null
+      return { lat, lon, label: [county || p.city || p.name, p.state].filter(Boolean).join(', ') }
+    }
+  } catch {
+    // fall through to the second service
+  }
+  const name = query.split(',')[0].trim()
+  const state = query.split(',')[1]?.trim().toLowerCase()
+  const data = await fetchJson(
+    `https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&countryCode=US&format=json&name=${encodeURIComponent(name)}`,
+  ).catch(() => {
+    throw new Error('Place search is not available right now. Click the map instead.')
+  })
+  const results = data.results || []
+  const hit = results.find((r) => state && r.admin1?.toLowerCase().startsWith(state)) || results[0]
+  if (!hit) return null
+  const county = hit.admin2 ? (/county|parish/i.test(hit.admin2) ? hit.admin2 : `${hit.admin2} County`) : hit.name
+  return { lat: hit.latitude, lon: hit.longitude, label: [county, hit.admin1].filter(Boolean).join(', ') }
+}
+
+// Returns { label, inUS } or null when the lookup fails or times out.
 export async function placeName(lat, lon) {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${lat}&lon=${lon}`
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
-    if (!res.ok) return null
-    const hit = await res.json()
-    if (hit.error) return { label: null, inUS: false }
-    return { label: shortName(hit), inUS: hit.address?.country_code === 'us' }
+    const d = await fetchJson(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en&latitude=${lat}&longitude=${lon}`,
+      5000,
+    )
+    const admin = d.localityInfo?.administrative || []
+    const county = admin.find((a) => a.adminLevel === 6)?.name
+    const local = county || d.city || d.locality
+    const label = local && d.principalSubdivision ? `${local}, ${d.principalSubdivision}` : d.principalSubdivision || null
+    return { label, inUS: d.countryCode === 'US' }
   } catch {
     return null
   }
-}
-
-// "Finney County, Kansas" or "Garden City, Kansas"
-function shortName(hit) {
-  const a = hit.address || {}
-  const local = a.county || a.city || a.town || a.village || a.municipality
-  if (local && a.state) return `${local}, ${a.state}`
-  return a.state || hit.display_name?.split(',').slice(0, 2).join(',') || null
 }
