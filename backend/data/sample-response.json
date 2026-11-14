@@ -1,0 +1,142 @@
+{
+  "location": {
+    "lat": 37.97,
+    "lon": -100.87,
+    "label": "Finney County, Kansas",
+    "grid_note": "NASA POWER cell ~55 km"
+  },
+  "climate": {
+    "period": "2001-2020",
+    "monthly": [
+      { "month": 1, "precip_mm": 10, "t_max_c": 6, "t_min_c": -9, "soil_moisture_root": 0.46 },
+      { "month": 2, "precip_mm": 12, "t_max_c": 9, "t_min_c": -7, "soil_moisture_root": 0.47 },
+      { "month": 3, "precip_mm": 30, "t_max_c": 14, "t_min_c": -3, "soil_moisture_root": 0.49 },
+      { "month": 4, "precip_mm": 40, "t_max_c": 19, "t_min_c": 2, "soil_moisture_root": 0.5 },
+      { "month": 5, "precip_mm": 70, "t_max_c": 25, "t_min_c": 8, "soil_moisture_root": 0.5 },
+      { "month": 6, "precip_mm": 75, "t_max_c": 31, "t_min_c": 14, "soil_moisture_root": 0.44 },
+      { "month": 7, "precip_mm": 70, "t_max_c": 34, "t_min_c": 17, "soil_moisture_root": 0.37 },
+      { "month": 8, "precip_mm": 65, "t_max_c": 33, "t_min_c": 16, "soil_moisture_root": 0.35 },
+      { "month": 9, "precip_mm": 40, "t_max_c": 28, "t_min_c": 11, "soil_moisture_root": 0.36 },
+      { "month": 10, "precip_mm": 35, "t_max_c": 21, "t_min_c": 3, "soil_moisture_root": 0.39 },
+      { "month": 11, "precip_mm": 15, "t_max_c": 13, "t_min_c": -4, "soil_moisture_root": 0.42 },
+      { "month": 12, "precip_mm": 12, "t_max_c": 6, "t_min_c": -8, "soil_moisture_root": 0.44 }
+    ],
+    "frost_risk_months": [10, 11, 12, 1, 2, 3, 4],
+    "heat_stress_months": [7, 8],
+    "bare_field_months": [11, 12, 1, 2, 3, 4],
+    "trend": {
+      "precip_change_pct_per_decade": -3.0,
+      "t_mean_change_c_per_decade": 0.3
+    }
+  },
+  "soil": {
+    "source": "USDA SSURGO",
+    "texture": "Silt loam",
+    "organic_matter_pct": 1.6,
+    "drainage": "Well drained",
+    "available_water_cm": 20
+  },
+  "groundwater": {
+    "source": "NASA GRACE-FO",
+    "trend_cm_per_year": -1.2,
+    "since": 2002
+  },
+  "cropland_history": [
+    { "year": 2025, "crop": "maize" },
+    { "year": 2024, "crop": "maize" },
+    { "year": 2023, "crop": "sorghum" },
+    { "year": 2022, "crop": "maize" },
+    { "year": 2021, "crop": "maize" }
+  ],
+  "strategies": [
+    {
+      "id": "current",
+      "name": "Your current rotation",
+      "is_current": true,
+      "sequence": [
+        { "season": "May-Oct", "crop": "maize" },
+        { "season": "Nov-Apr", "crop": "fallow" }
+      ],
+      "scores": { "water": 30, "soil": 30, "resilience": 35, "income": 70 },
+      "why": "This is the rotation you grow today. The other options are compared against it.",
+      "evidence": [
+        { "dataset": "NASA GRACE-FO", "finding": "Groundwater storage in this region has dropped about 1.2 cm per year since 2002." },
+        { "dataset": "NASA POWER", "finding": "July and August average highs of 33-34 °C, during corn's flowering and grain fill." }
+      ],
+      "benefits": [
+        "Strong local market and familiar equipment",
+        "Highest income of the three when irrigation water is available"
+      ],
+      "gaps": [
+        "How much water your well can still deliver"
+      ],
+      "expert_review": [
+        "Six bare months leave silt loam exposed to spring wind erosion",
+        "Irrigation demand peaks when the aquifer is under the most pressure"
+      ]
+    },
+    {
+      "id": "cover",
+      "name": "Keep corn, add a winter cover",
+      "is_current": false,
+      "sequence": [
+        { "season": "May-Oct", "crop": "maize" },
+        { "season": "Nov-Mar", "crop": "cereal_rye" },
+        { "season": "Apr-Apr", "crop": "fallow" }
+      ],
+      "scores": { "water": 25, "soil": 65, "resilience": 45, "income": 65 },
+      "why": "Living roots hold the soil through the windy months and build organic matter. The trade-off: the cover crop uses some of the moisture stored over winter.",
+      "evidence": [
+        { "dataset": "USDA SSURGO", "finding": "Silt loam with 1.6% organic matter: easy to erode when bare, slow to rebuild." },
+        { "dataset": "NASA POWER", "finding": "Root-zone soil moisture recovers to 0.46-0.50 between January and May." }
+      ],
+      "benefits": [
+        "Five fewer months of bare soil",
+        "Less wind erosion in March and April",
+        "Can be grazed in early spring"
+      ],
+      "gaps": [
+        "How much stored water the rye uses in a dry spring"
+      ],
+      "expert_review": [
+        "End the rye early in dry years so corn starts with enough moisture",
+        "Check crop insurance rules for cover crop termination dates"
+      ]
+    },
+    {
+      "id": "sorghum",
+      "name": "Switch to sorghum with a legume cover",
+      "is_current": false,
+      "sequence": [
+        { "season": "Jun-Oct", "crop": "sorghum" },
+        { "season": "Nov-Apr", "crop": "hairy_vetch" },
+        { "season": "May-May", "crop": "fallow" }
+      ],
+      "scores": { "water": 70, "soil": 70, "resilience": 72, "income": 55 },
+      "why": "Grain sorghum needs less water than corn and handles July heat better. Hairy vetch fixes nitrogen over winter, which can cut fertilizer for the next crop.",
+      "evidence": [
+        { "dataset": "NASA GRACE-FO", "finding": "Falling groundwater makes low-water crops a hedge against future pumping limits." },
+        { "dataset": "NASA POWER", "finding": "About 59% of the year's rain falls from May to August, matching sorghum's growing season." }
+      ],
+      "benefits": [
+        "Lower irrigation demand",
+        "Adds nitrogen through the vetch",
+        "Breaks the corn pest cycle"
+      ],
+      "gaps": [
+        "Local sorghum prices and elevator access",
+        "Vetch survival in your coldest winters"
+      ],
+      "expert_review": [
+        "Check that your planter and combine can handle sorghum",
+        "Hairy vetch can become a weed in wheat if it sets seed"
+      ]
+    }
+  ],
+  "sources": [
+    { "name": "NASA POWER", "url": "https://power.larc.nasa.gov", "note": "Monthly climatology 2001-2020, about 55 km per cell" },
+    { "name": "NASA GRACE-FO", "url": "https://grace.jpl.nasa.gov", "note": "Groundwater storage trend" },
+    { "name": "USDA SSURGO", "url": "https://sdmdataaccess.nrcs.usda.gov", "note": "Soil properties at the point" },
+    { "name": "NASA GIBS (MODIS NDVI)", "url": "https://gibs.earthdata.nasa.gov", "note": "8-day vegetation index map layer" }
+  ]
+}

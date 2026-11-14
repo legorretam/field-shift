@@ -1,0 +1,17 @@
+[
+  { "id": "maize", "name": "Corn", "group": "cereal", "water_need": "high", "nitrogen_fixing": false },
+  { "id": "wheat", "name": "Winter wheat", "group": "cereal", "water_need": "medium", "nitrogen_fixing": false },
+  { "id": "rice", "name": "Rice", "group": "cereal", "water_need": "high", "nitrogen_fixing": false },
+  { "id": "barley", "name": "Barley", "group": "cereal", "water_need": "medium", "nitrogen_fixing": false },
+  { "id": "sorghum", "name": "Grain sorghum", "group": "cereal", "water_need": "low", "nitrogen_fixing": false },
+  { "id": "millet", "name": "Millet", "group": "cereal", "water_need": "low", "nitrogen_fixing": false },
+  { "id": "soybean", "name": "Soybean", "group": "legume", "water_need": "medium", "nitrogen_fixing": true },
+  { "id": "chickpea", "name": "Chickpea", "group": "legume", "water_need": "low", "nitrogen_fixing": true },
+  { "id": "cowpea", "name": "Cowpea", "group": "legume", "water_need": "low", "nitrogen_fixing": true },
+  { "id": "common_bean", "name": "Dry bean", "group": "legume", "water_need": "medium", "nitrogen_fixing": true },
+  { "id": "hairy_vetch", "name": "Hairy vetch", "group": "cover", "water_need": "low", "nitrogen_fixing": true },
+  { "id": "cereal_rye", "name": "Cereal rye", "group": "cover", "water_need": "low", "nitrogen_fixing": false },
+  { "id": "alfalfa", "name": "Alfalfa", "group": "forage", "water_need": "high", "nitrogen_fixing": true },
+  { "id": "cotton", "name": "Cotton", "group": "fiber", "water_need": "high", "nitrogen_fixing": false },
+  { "id": "fallow", "name": "Bare (fallow)", "group": "fallow", "water_need": "low", "nitrogen_fixing": false }
+]
