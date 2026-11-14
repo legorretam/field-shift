@@ -6,7 +6,7 @@
     "grid_note": "NASA POWER cell ~55 km"
   },
   "climate": {
-    "period": "2001-2020",
+    "period": "2001-2025",
     "monthly": [
       { "month": 1, "precip_mm": 10, "t_max_c": 6, "t_min_c": -9, "soil_moisture_root": 0.46 },
       { "month": 2, "precip_mm": 12, "t_max_c": 9, "t_min_c": -7, "soil_moisture_root": 0.47 },
@@ -134,7 +134,7 @@
     }
   ],
   "sources": [
-    { "name": "NASA POWER", "url": "https://power.larc.nasa.gov", "note": "Monthly climatology 2001-2020, about 55 km per cell" },
+    { "name": "NASA POWER", "url": "https://power.larc.nasa.gov", "note": "Monthly climatology 2001-2025, about 55 km per cell" },
     { "name": "NASA GRACE-FO", "url": "https://grace.jpl.nasa.gov", "note": "Groundwater storage trend" },
     { "name": "USDA SSURGO", "url": "https://sdmdataaccess.nrcs.usda.gov", "note": "Soil properties at the point" },
     { "name": "NASA GIBS (MODIS NDVI)", "url": "https://gibs.earthdata.nasa.gov", "note": "8-day vegetation index map layer" }

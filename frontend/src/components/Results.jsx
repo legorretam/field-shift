@@ -86,7 +86,7 @@ function Loaded({ result, label, picked, crops, priorities, onEdit }) {
         <div>
           <h1 className="display">{label}</h1>
           <p className="lede">
-            {formatCoord(location.lat, location.lon)}. Climate is the 20-year average for {climate.period} from
+            {formatCoord(location.lat, location.lon)}. Climate is the long-term average for {climate.period} from
             NASA POWER, over a cell about 55 km across.
           </p>
         </div>
