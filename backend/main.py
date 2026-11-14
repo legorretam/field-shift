@@ -66,15 +66,15 @@ def crops():
     return CROPS
 
 
-# Caja aproximada de EE. UU. (incluye Alaska y Hawái).
+# Caja aproximada de los 48 estados contiguos (sin Alaska ni Hawái).
 def in_us(lat: float, lon: float) -> bool:
-    return 18 <= lat <= 72 and -180 <= lon <= -65
+    return 24.3 <= lat <= 49.5 and -125 <= lon <= -66.9
 
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest):
     if not in_us(req.lat, req.lon):
-        raise HTTPException(status_code=422, detail="Field Shift covers farms in the United States only.")
+        raise HTTPException(status_code=422, detail="Field Shift covers farms in the 48 contiguous states only.")
     try:
         climate = fetch_power_climate(req.lat, req.lon)
     except Exception as exc:  # NASA POWER caído o lento

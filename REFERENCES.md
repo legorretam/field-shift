@@ -12,7 +12,7 @@ Every external resource used in the project. Add new ones as you use them (requi
 
 ## Services
 - OpenStreetMap Nominatim, place search: https://nominatim.org
-- CARTO basemap labels: https://carto.com/basemaps
+- Map labels and state borders: Esri World Boundaries and Places
 
 ## Code libraries
 - React: https://react.dev

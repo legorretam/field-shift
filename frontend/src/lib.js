@@ -45,3 +45,13 @@ export const formatCoord = (lat, lon) =>
 
 // Short crop names for strips and summaries.
 export const cropLabel = (crop, id) => (crop?.group === 'fallow' || id === 'fallow' ? 'Bare soil' : crop?.name || id)
+
+// Texture class for a crop's segment or swatch.
+export const segClass = (crop, id) => {
+  if ((crop?.id || id) === 'sorghum') return 'seg-sorghum'
+  return `seg-${crop?.group || (id === 'fallow' ? 'fallow' : 'cereal')}`
+}
+
+const WATER_WORDS = { low: 'Low water', medium: 'Medium water', high: 'High water' }
+export const cropMeta = (crop) =>
+  [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen'].filter(Boolean).join(', ')

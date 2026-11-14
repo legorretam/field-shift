@@ -21,6 +21,11 @@ export default function App() {
   const [status, setStatus] = useState('idle') // idle | loading | error
   const [error, setError] = useState('')
 
+  // Each step starts at the top of the page.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [step])
+
   useEffect(() => {
     getCrops().then(setCrops).catch((e) => setError(e.message))
   }, [])
@@ -58,7 +63,7 @@ export default function App() {
         <nav className="steps" aria-label="Progress">
           <ol>
             {STEPS.map((s, i) => (
-              <li key={s.id}>
+              <li key={s.id} className={reached[s.id] ? 'is-reached' : undefined}>
                 <button
                   className="step"
                   aria-current={step === s.id ? 'step' : undefined}
@@ -72,14 +77,17 @@ export default function App() {
             ))}
           </ol>
         </nav>
-        {usingSample && (
-          <span className="sample-flag" title="Set VITE_API_URL to use the live backend">
-            Sample data
-          </span>
-        )}
+        <div className="topbar-side">
+          <span>NASA and USDA open data</span>
+          {usingSample && (
+            <span className="sample-flag" title="Set VITE_API_URL to use the live backend">
+              Sample data
+            </span>
+          )}
+        </div>
       </header>
 
-      <main className="stage">
+      <main className="stage" key={step}>
         {step === 'field' && (
           <FieldMap point={point} onPick={setPoint} onContinue={() => setStep('farm')} />
         )}

@@ -1,32 +1,47 @@
 import { cropLabel } from '../lib.js'
 
-export default function StrategyDetail({ strategy, cropById, fit, isBest }) {
-  const plan = strategy.sequence
-    .map((q) => `${cropLabel(cropById[q.crop], q.crop)} (${seasonText(q.season)})`)
-    .join(', then ')
+// "Jun-Oct" -> "Jun–Oct"; "May-May" -> "May"
+function seasonText(season) {
+  const [a, b] = season.split('-')
+  return a === b ? a : `${a}–${b}`
+}
 
+export default function StrategyDetail({ strategy, cropById, fit, isBest }) {
   return (
     <article className="detail" aria-live="polite">
       <header className="detail-head">
-        <h2 className="h1">{strategy.name}</h2>
-        <p className="detail-plan">{plan}</p>
-        <p className="muted">
-          Match with your priorities: {fit} / 100{isBest ? ', the highest of the three' : ''}
-        </p>
+        <div>
+          <h2 className="h1">{strategy.name}</h2>
+          <p className="detail-plan">
+            {strategy.sequence.map((q, i) => (
+              <span key={i}>
+                {i > 0 && ', then '}
+                <b>{cropLabel(cropById[q.crop], q.crop)}</b> {seasonText(q.season)}
+              </span>
+            ))}
+          </p>
+        </div>
+        <div className="fit-ring" style={{ '--p': fit }} title={isBest ? 'The highest match of the three' : undefined}>
+          <span>
+            <b>{fit}</b>
+            <small>match</small>
+          </span>
+        </div>
       </header>
 
       <div className="detail-main">
-        <section className="why">
-          <h3 className="h3">Why this option</h3>
+        <section>
+          <h3 className="h3 muted">Why this option</h3>
           <p className="why-text">{strategy.why}</p>
         </section>
 
         <section className="evidence">
-          <h3 className="h3">What the data shows</h3>
+          <h3 className="h3 muted">What the data shows</h3>
           <ul>
             {strategy.evidence.map((e, i) => (
               <li key={i}>
                 <span className={`ev-source${/^USDA/i.test(e.dataset) ? ' ev-usda' : ''}`}>{e.dataset}</span>
+                <br />
                 {e.finding}
               </li>
             ))}
@@ -55,10 +70,4 @@ function ListBlock({ tone, title, items }) {
       </ul>
     </section>
   )
-}
-
-// "Jun-Oct" -> "Jun–Oct"; "May-May" -> "May"
-function seasonText(season) {
-  const [a, b] = season.split('-')
-  return a === b ? a : `${a}–${b}`
 }
