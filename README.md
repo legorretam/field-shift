@@ -52,6 +52,8 @@ Reinicia `npm run dev`. La etiqueta "Sample data" desaparece y los datos vienen 
 - `GET /api/crops` → lista de `contract/crops.json`
 - `POST /api/analyze` → recibe `{ lat, lon, current_rotation, priorities }` y regresa lo de `contract/sample-response.json`
 
+`lat` y `lon` siempre llegan como el **centro de una celda** de la cuadrícula de NASA POWER: `lat = 24 + 0.5·i`, `lon = −125 + 0.625·j` (i, j enteros). Son los mismos valores de las columnas `lat` y `lon` de `backend/data/climate/power_climatology_2001_2025_conus.csv`, así que el backend puede buscar la fila directo.
+
 Reglas: la unidad va en el nombre del campo (`_mm`, `_c`); puntajes de 0 a 100 (más alto es mejor); `strategies` tiene 3 elementos y el primero es la rotación actual; textos en inglés.
 Si cambias el contrato, actualiza también las copias en `frontend/src/mock/` y `backend/data/`.
 

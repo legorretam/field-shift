@@ -451,6 +451,10 @@ input[type='search']:focus {
   font-size: 10.5px;
   background: rgba(248, 249, 245, 0.8) !important;
 }
+/* Transparent overlays show only the current zoom level, never a stretched copy of the last one. */
+.overlay-tiles .leaflet-tile-container:not([style*='z-index: 10;']) {
+  display: none;
+}
 .cell-outline {
   stroke-dasharray: 6 6;
   animation: march 1.2s linear infinite;

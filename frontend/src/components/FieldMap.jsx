@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polygon, Polyline, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { placeName, searchPlace } from '../api.js'
-import { formatCoord } from '../lib.js'
+import { GRID, cellBounds, formatCell, sameCell, snapToCell } from '../lib.js'
 import { ArrowIcon, SearchIcon } from './Icons.jsx'
 
 // NASA GIBS tiles: Blue Marble base, MODIS 8-day NDVI overlay, reference labels.
@@ -57,23 +57,71 @@ function useLower48() {
   return rings
 }
 
-// One NASA POWER cell is 0.5° latitude by 0.625° longitude.
-const cellAround = (lat, lon) => [
-  [lat - 0.25, lon - 0.3125],
-  [lat + 0.25, lon + 0.3125],
-]
+// The grid only draws once you are close enough for the squares to read.
+const GRID_MIN_ZOOM = 6
+// Outer edges of the grid box that the backend's climate file covers.
+const GRID_EDGES = { south: 23.75, north: 50.25, west: -125.3125, east: -64.6875 }
 
-function ClickToPick({ onClick }) {
-  useMapEvents({
-    click: (e) => onClick(+e.latlng.lat.toFixed(4), +e.latlng.lng.toFixed(4)),
+// Clicks pick a whole grid cell; on desktop, the cell under the cursor is outlined first.
+function GridInteractions({ onPick, onHover }) {
+  const map = useMapEvents({
+    click: (e) => onPick(snapToCell(e.latlng.lat, e.latlng.lng), map.getZoom()),
+    mousemove: (e) => onHover(snapToCell(e.latlng.lat, e.latlng.lng)),
+    mouseout: () => onHover(null),
   })
   return null
+}
+
+// Grid lines for the part of the map in view, redrawn after every pan or zoom.
+function GridLines() {
+  const [lines, setLines] = useState([])
+  const map = useMapEvents({
+    moveend: () => setLines(linesFor(map)),
+    zoomend: () => setLines(linesFor(map)),
+  })
+  useEffect(() => setLines(linesFor(map)), [map])
+  if (!lines.length) return null
+  return (
+    <Polyline
+      positions={lines}
+      interactive={false}
+      pathOptions={{ color: '#f8f9f5', weight: 0.7, opacity: 0.38 }}
+    />
+  )
+}
+
+function linesFor(map) {
+  if (map.getZoom() < GRID_MIN_ZOOM) return []
+  const b = map.getBounds()
+  const s = Math.max(b.getSouth(), GRID_EDGES.south)
+  const n = Math.min(b.getNorth(), GRID_EDGES.north)
+  const w = Math.max(b.getWest(), GRID_EDGES.west)
+  const e = Math.min(b.getEast(), GRID_EDGES.east)
+  if (s >= n || w >= e) return []
+  const out = []
+  for (let k = Math.ceil((s - GRID_EDGES.south) / GRID.dLat); ; k++) {
+    const lat = GRID_EDGES.south + k * GRID.dLat
+    if (lat > n) break
+    out.push([
+      [lat, w],
+      [lat, e],
+    ])
+  }
+  for (let k = Math.ceil((w - GRID_EDGES.west) / GRID.dLon); ; k++) {
+    const lon = GRID_EDGES.west + k * GRID.dLon
+    if (lon > e) break
+    out.push([
+      [s, lon],
+      [n, lon],
+    ])
+  }
+  return out
 }
 
 function FlyTo({ target }) {
   const map = useMap()
   useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lon], 8, { duration: 1.4 })
+    if (target) map.flyTo([target.lat, target.lon], Math.max(map.getZoom(), 7), { duration: 1.2 })
   }, [map, target])
   return null
 }
@@ -84,17 +132,22 @@ export default function FieldMap({ point, onPick, onContinue }) {
   const [searchMsg, setSearchMsg] = useState('')
   const [flyTarget, setFlyTarget] = useState(null)
   const [showNdvi, setShowNdvi] = useState(true)
+  const [hoverCell, setHoverCell] = useState(null)
   const states = useLower48()
   // Everything outside the lower 48 sits under a dark veil: a world-sized polygon with the states cut out.
   const veil = useMemo(() => (states ? [WORLD_RING, ...states] : null), [states])
 
-  async function onMapClick(lat, lon) {
+  // lat and lon are always a grid cell center, so the backend can look the cell up directly.
+  async function onCellPick(cell, zoom) {
+    const { lat, lon } = cell
     setSearchMsg('')
     if (!inContiguousUS(lat, lon)) {
       onPick(null)
       setSearchMsg(OUTSIDE_MSG)
       return
     }
+    // From far out, fly in so the chosen square and its neighbours are visible.
+    if (zoom < GRID_MIN_ZOOM) setFlyTarget(cell)
     onPick({ lat, lon, label: null })
     const place = await placeName(lat, lon)
     if (place && !place.inUS) {
@@ -102,7 +155,7 @@ export default function FieldMap({ point, onPick, onContinue }) {
       setSearchMsg(OUTSIDE_MSG)
     } else {
       // If the name lookup fails, the field still works; it is just named by its coordinates.
-      onPick({ lat, lon, label: place?.label || `Field at ${formatCoord(lat, lon)}` })
+      onPick({ lat, lon, label: place?.label || `Grid square at ${formatCell({ lat, lon })}` })
     }
   }
 
@@ -114,10 +167,13 @@ export default function FieldMap({ point, onPick, onContinue }) {
     try {
       const hit = await searchPlace(query)
       if (!hit) setSearchMsg(`No place called "${query}" in the lower 48. Try a nearby town or county.`)
-      else if (!inContiguousUS(hit.lat, hit.lon)) setSearchMsg(OUTSIDE_MSG)
       else {
-        onPick(hit)
-        setFlyTarget(hit)
+        const cell = snapToCell(hit.lat, hit.lon)
+        if (!inContiguousUS(cell.lat, cell.lon)) setSearchMsg(OUTSIDE_MSG)
+        else {
+          onPick({ ...cell, label: hit.label })
+          setFlyTarget(cell)
+        }
       }
     } catch (err) {
       setSearchMsg(err.message)
@@ -140,9 +196,9 @@ export default function FieldMap({ point, onPick, onContinue }) {
       >
         <TileLayer url={BASE} maxNativeZoom={8} attribution="Imagery: NASA GIBS Blue Marble" />
         {showNdvi && (
-          <TileLayer url={NDVI} maxNativeZoom={9} opacity={0.72} attribution="MODIS NDVI: NASA GIBS" />
+          <TileLayer url={NDVI} className="overlay-tiles" maxZoom={10} maxNativeZoom={9} opacity={0.72} attribution="MODIS NDVI: NASA GIBS" />
         )}
-        <TileLayer url={LABELS} attribution="Labels and borders: Esri" />
+        <TileLayer url={LABELS} className="overlay-tiles" maxZoom={10} attribution="Labels and borders: Esri" />
         {veil && (
           <>
             <Polygon
@@ -157,18 +213,28 @@ export default function FieldMap({ point, onPick, onContinue }) {
             />
           </>
         )}
-        <ClickToPick onClick={onMapClick} />
+        <GridLines />
+        <GridInteractions onPick={onCellPick} onHover={setHoverCell} />
         <FlyTo target={flyTarget} />
+        {hoverCell && !sameCell(hoverCell, point) && inContiguousUS(hoverCell.lat, hoverCell.lon) && (
+          <Rectangle
+            bounds={cellBounds(hoverCell)}
+            interactive={false}
+            pathOptions={{ color: '#f8f9f5', weight: 1.2, opacity: 0.9, fillColor: '#f8f9f5', fillOpacity: 0.12 }}
+          />
+        )}
         {point && (
           <>
             <Rectangle
-              bounds={cellAround(point.lat, point.lon)}
-              pathOptions={{ className: 'cell-outline', color: '#f8f9f5', weight: 1.5, fillColor: '#f8f9f5', fillOpacity: 0.1 }}
+              bounds={cellBounds(point)}
+              interactive={false}
+              pathOptions={{ className: 'cell-outline', color: '#f8f9f5', weight: 2, fillColor: '#d9a43c', fillOpacity: 0.45 }}
             />
             <CircleMarker
               center={[point.lat, point.lon]}
-              radius={8}
-              pathOptions={{ color: '#f8f9f5', weight: 3, fillColor: '#d9a43c', fillOpacity: 1 }}
+              radius={5}
+              interactive={false}
+              pathOptions={{ color: '#f8f9f5', weight: 2, fillColor: '#d9a43c', fillOpacity: 1 }}
             />
           </>
         )}
@@ -177,8 +243,8 @@ export default function FieldMap({ point, onPick, onContinue }) {
       <aside className={`map-panel screen${point ? ' has-point' : ''}`}>
         <h1 className="display">Every field has a year.</h1>
         <p className="lede">
-          Pick a field in the lower 48. We line up two decades of NASA and USDA data against the
-          rotations you could grow there.
+          Pick the grid square that holds your field. We line up two decades of NASA and USDA data
+          against the rotations you could grow there.
         </p>
 
         <form className="search" onSubmit={onSearch} role="search">
@@ -209,12 +275,12 @@ export default function FieldMap({ point, onPick, onContinue }) {
               <p className="picked-name" key={`${point.lat},${point.lon},${point.label}`}>
                 {point.label || 'Locating…'}
               </p>
-              <p className="picked-coord">{formatCoord(point.lat, point.lon)}</p>
+              <p className="picked-coord">Grid square centered at {formatCell(point)}</p>
               <div className="cell-note">
                 <span className="cell-icon" aria-hidden="true" />
                 <p className="note">
-                  The dashed square is one NASA POWER cell, about 55 km across. Its climate is an
-                  average for that area, not a reading from your field.
+                  Field Shift works on NASA POWER’s grid: squares 0.5° tall and 0.625° wide, about
+                  55 km across. Results describe the whole square, not a single field.
                 </p>
               </div>
               <button className="btn btn-primary btn-lg" onClick={onContinue}>
@@ -225,7 +291,7 @@ export default function FieldMap({ point, onPick, onContinue }) {
           ) : (
             <p className="picked-empty">
               <span className="pulse-dot" aria-hidden="true" />
-              Click anywhere on the map to drop your field.
+              Click the map to pick a grid square. Zoom in to see the grid.
             </p>
           )}
         </div>

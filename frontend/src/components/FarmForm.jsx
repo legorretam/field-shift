@@ -1,4 +1,4 @@
-import { cropLabel, cropMeta, formatCoord, segClass } from '../lib.js'
+import { cropLabel, cropMeta, formatCell, segClass } from '../lib.js'
 import { ArrowIcon, CheckIcon } from './Icons.jsx'
 
 const PRIORITIES = [
@@ -38,7 +38,7 @@ export default function FarmForm({ point, crops, farm, onFarm, priorities, onPri
     <section className="form-screen screen">
       <div className="form-head">
         <p className="crumb">
-          <strong>{point?.label || 'Your field'}</strong>, {formatCoord(point.lat, point.lon)}
+          <strong>{point?.label || 'Your field'}</strong>, grid square at {formatCell(point)}
         </p>
         <h1 className="display">What grows here now?</h1>
         <p className="lede">

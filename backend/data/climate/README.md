@@ -40,3 +40,28 @@ https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=T2M,PRECTOTCOR
 
 - About 55 km per cell: regional climate, not field level.
 - MERRA-2 is a model reanalysis, not a rain gauge. PRISM or CoCoRaHS (both in the challenge resources) can validate it locally.
+
+## power_monthly_2020_2025_conus.csv
+
+Monthly values, NOT averaged across years: one row per cell per month,
+January 2020 to December 2025. Same grid and box as the climatology file
+(5,141 cells x 72 months = 370,152 rows, about 15 MB).
+
+| Column | Meaning | POWER parameter |
+| --- | --- | --- |
+| lat, lon, elevation_m | Cell center and elevation | |
+| year, month | The month this row describes | |
+| t_mean_c | Mean air temperature at 2 m that month, deg C | T2M |
+| precip_mm_per_day | Average daily rain that month, as POWER gives it | PRECTOTCORR |
+| precip_mm | Total rain that month = mm/day x days in that month (leap years counted) | PRECTOTCORR |
+
+How it was downloaded: 36 requests (2 parameters x 18 tiles) to
+
+    https://power.larc.nasa.gov/api/temporal/monthly/regional?parameters={T2M|PRECTOTCORR}&community=AG&latitude-min=..&latitude-max=..&longitude-min=..&longitude-max=..&start=2020&end=2025&format=JSON
+
+Example tile:
+https://power.larc.nasa.gov/api/temporal/monthly/regional?parameters=T2M&community=AG&latitude-min=34&latitude-max=44&longitude-min=-105&longitude-max=-95&start=2020&end=2025&format=JSON
+
+POWER also returns a yearly value per cell (keys ending in 13); it is left out here.
+Check done: for the Kansas demo cell, the 12 months of 2022 add up to 282 mm,
+matching the 2022 annual value in power_annual_1991_2025_finney_ks.csv (0.77 mm/day).

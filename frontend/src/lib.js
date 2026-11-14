@@ -57,3 +57,25 @@ export const cropMeta = (crop) =>
   crop.group === 'fallow'
     ? 'Nothing planted'
     : [WATER_WORDS[crop.water_need], crop.nitrogen_fixing && 'fixes nitrogen'].filter(Boolean).join(', ')
+
+// NASA POWER native grid, the same one as backend/data/climate/power_climatology_2001_2025_conus.csv.
+// Cell centers sit at lat = 24 + 0.5 * i and lon = -125 + 0.625 * j (i, j whole numbers).
+// Both steps are exact in binary, so centers match the CSV rows exactly.
+export const GRID = { lat0: 24, lon0: -125, dLat: 0.5, dLon: 0.625 }
+
+export function snapToCell(lat, lon) {
+  const i = Math.round((lat - GRID.lat0) / GRID.dLat)
+  const j = Math.round((lon - GRID.lon0) / GRID.dLon)
+  return { lat: GRID.lat0 + i * GRID.dLat, lon: GRID.lon0 + j * GRID.dLon }
+}
+
+export const cellBounds = ({ lat, lon }) => [
+  [lat - GRID.dLat / 2, lon - GRID.dLon / 2],
+  [lat + GRID.dLat / 2, lon + GRID.dLon / 2],
+]
+
+export const sameCell = (a, b) => !!a && !!b && a.lat === b.lat && a.lon === b.lon
+
+// A grid cell center with the precision the grid actually has: "39.0° N, 101.875° W".
+export const formatCell = ({ lat, lon }) =>
+  `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}° ${lon >= 0 ? 'E' : 'W'}`
