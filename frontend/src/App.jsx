@@ -3,16 +3,14 @@ import { OutsideCoverageError, cellClimate, loadClimate, recommend, usingSample,
 import FieldMap from './components/FieldMap.jsx'
 import FarmForm from './components/FarmForm.jsx'
 import Results from './components/Results.jsx'
+import { useI18n } from './i18n.jsx'
 
-const STEPS = [
-  { id: 'field', label: 'Field' },
-  { id: 'farm', label: 'Farm' },
-  { id: 'compare', label: 'Compare' },
-]
+const STEPS = ['field', 'farm', 'compare']
 
 const NASA = { temp: 'nasa', rain: 'nasa' }
 
 export default function App() {
+  const { t, lang, setLang } = useI18n()
   const [step, setStep] = useState('field')
   const [point, setPoint] = useState(null) // { lat, lon, label }
   const [climate, setClimate] = useState({ status: 'idle', data: null }) // data: { temp: [12], rain: [12] }
@@ -23,7 +21,7 @@ export default function App() {
   const [request, setRequest] = useState(null)
   const [result, setResult] = useState(null)
   const [status, setStatus] = useState('idle') // idle | loading | error | outside
-  const [error, setError] = useState('')
+  const [error, setError] = useState(null) // { key, vars } from api.js, or { text }
 
   // Each step starts at the top of the page.
   useEffect(() => {
@@ -80,7 +78,7 @@ export default function App() {
     }
     setStep('compare')
     setStatus('loading')
-    setError('')
+    setError(null)
     setRequest(body)
     try {
       const data = await recommend(body)
@@ -88,7 +86,7 @@ export default function App() {
       setStatus('idle')
     } catch (e) {
       setResult(null)
-      setError(e.message)
+      setError(e.key ? { key: e.key, vars: e.vars } : { text: e.message })
       setStatus(e instanceof OutsideCoverageError ? 'outside' : 'error')
     }
   }
@@ -98,7 +96,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Field Shift, start over">
+        <a className="brand" href="/" aria-label={t('brand.home')}>
           <span className="brand-mark" aria-hidden="true">
             <i /><i /><i />
             {/* A small blue flower growing at the end of the middle row. */}
@@ -113,30 +111,44 @@ export default function App() {
           </span>
           <span className="brand-word">Field Shift</span>
         </a>
-        <nav className="steps" aria-label="Progress">
+        <nav className="steps" aria-label={t('nav.progress')}>
           <ol>
             {STEPS.map((s, i) => (
-              <li key={s.id} className={reached[s.id] ? 'is-reached' : undefined}>
+              <li key={s} className={reached[s] ? 'is-reached' : undefined}>
                 <button
                   className="step"
-                  aria-current={step === s.id ? 'step' : undefined}
-                  disabled={!reached[s.id]}
-                  onClick={() => setStep(s.id)}
+                  aria-current={step === s ? 'step' : undefined}
+                  disabled={!reached[s]}
+                  onClick={() => setStep(s)}
                 >
                   <span className="step-num">{i + 1}</span>
-                  <span className="step-label">{s.label}</span>
+                  <span className="step-label">{t(`step.${s}`)}</span>
                 </button>
               </li>
             ))}
           </ol>
         </nav>
         <div className="topbar-side">
-          <span>NASA open data</span>
+          <span className="topbar-data">{t('top.data')}</span>
           {usingSample && (
-            <span className="sample-flag" title="VITE_API_URL is set to sample">
-              Sample data
+            <span className="sample-flag" title={t('top.sampleTitle')}>
+              {t('top.sample')}
             </span>
           )}
+          <div className="seg-toggle lang-toggle" role="group" aria-label={t('lang.label')}>
+            {['en', 'es'].map((l) => (
+              <button
+                key={l}
+                type="button"
+                lang={l}
+                aria-pressed={lang === l}
+                aria-label={l === 'en' ? 'English' : 'Español'}
+                onClick={() => setLang(l)}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 

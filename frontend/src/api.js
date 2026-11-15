@@ -10,6 +10,9 @@ const API = usingSample ? '' : (ENV_API || RENDER_API).replace(/\/$/, '')
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Errors carry a message key (see i18n.jsx) so the screen can say them in either language.
+const fail = (key, vars) => Object.assign(new Error(key), { key, vars })
+
 // Render's free plan sleeps when nobody uses it. Knock on the door as soon as the
 // page opens so the server is awake by the time the farmer asks for results.
 export function wakeServer() {
@@ -39,9 +42,9 @@ export async function recommend(body, { timeoutMs = 120000 } = {}) {
     })
   } catch (e) {
     if (e.name === 'AbortError') {
-      throw new Error('The model took too long to answer. The server may still be waking up: try again in a moment.')
+      throw fail('err.timeout')
     }
-    throw new Error('Could not reach the model server. Check your connection and try again.')
+    throw fail('err.network')
   } finally {
     clearTimeout(timer)
   }
@@ -52,7 +55,7 @@ export async function recommend(body, { timeoutMs = 120000 } = {}) {
   if (res.status === 500 || (data && data.status === 'error')) {
     throw new OutsideCoverageError(data?.mensaje || 'No model data for this place.')
   }
-  if (!res.ok || !data) throw new Error(`The model server answered ${res.status}.`)
+  if (!res.ok || !data) throw fail('err.status', { n: res.status })
   if (!Array.isArray(data.rotaciones) || !data.rotaciones.length) {
     throw new OutsideCoverageError('The model returned no options for this place.')
   }
@@ -118,7 +121,7 @@ export async function searchPlace(query) {
   const data = await fetchJson(
     `https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&countryCode=US&format=json&name=${encodeURIComponent(name)}`,
   ).catch(() => {
-    throw new Error('Place search is not available right now. Click the map instead.')
+    throw fail('map.searchDown')
   })
   const results = data.results || []
   const hit = results.find((r) => state && r.admin1?.toLowerCase().startsWith(state)) || results[0]

@@ -1,5 +1,6 @@
 // Turns the R model's answer (Spanish labels, one flat row per pair of crops) into
-// what the screens show (English, one entry per crop to plant now).
+// what the screens show: one entry per crop to plant now, in English or Spanish.
+// English comes from the tables below; Spanish keeps the model's own words, tidied.
 //
 // The vocabulary below is every value the model returned across 72 test runs over the
 // lower 48 states and all twelve months (Nov 15). Anything new falls back to the
@@ -51,9 +52,31 @@ const CROPS = {
   nueces: 'Walnuts',
 }
 
+// Spanish names where the model's own spelling needs help (accents, underscores).
+const CROPS_ES = {
+  maiz: 'Maíz',
+  'trigo invierno': 'Trigo de invierno',
+  'trigo primavera': 'Trigo de primavera',
+  'otro heno/forraje': 'Otro heno o forraje',
+  guisantes: 'Chícharo',
+  'guisantes arvejas': 'Arveja forrajera',
+  arvejas: 'Arveja forrajera',
+  papas: 'Papa',
+  soja: 'Soya',
+  algodon: 'Algodón',
+  frijoles: 'Frijol',
+  barbecho: 'Suelo desnudo (barbecho)',
+  'bayas de cana': 'Frutos rojos de caña',
+  'arboles navidad': 'Árboles de Navidad',
+  arandanos: 'Arándanos',
+  citricos: 'Cítricos',
+}
+
 const SEASONS = { otono: 'fall', primavera: 'spring', verano: 'summer', invierno: 'winter' }
+const SEASONS_ES = { otono: 'otoño', primavera: 'primavera', verano: 'verano', invierno: 'invierno' }
 
 const COMPAT = { optima: 'Best fit', compatible: 'Good fit' }
+const COMPAT_ES = { optima: 'Encaja muy bien', compatible: 'Encaja bien' }
 
 const HARVEST = {
   otono: 'Fall',
@@ -98,44 +121,51 @@ const tidy = (s) => {
   const t = String(s ?? '').replaceAll('_', ' ').replace(/\s+/g, ' ').trim()
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
-const from = (table, s) => table[fold(s)] || tidy(s)
+// In Spanish, the model's text is already right; only the arrow needs tidying.
+const fromEs = (table, s) => table?.[fold(s)] || tidy(s).replace(/\s*->\s*/g, ', luego ')
+const pick = (lang, en, es, s) => (lang === 'es' ? fromEs(es, s) : en[fold(s)] || tidy(s))
 
-export const cropName = (s) => from(CROPS, s)
+export const cropName = (s, lang = 'en') => pick(lang, CROPS, CROPS_ES, s)
 
-// "Inmediata (Otoño)" -> "Right after harvest, in fall"; "Siguiente (Primavera)" -> "Next spring"
-export function plantingWindow(s) {
+// "Inmediata (Otoño)" -> "Right after harvest, in fall" / "Justo después de cosechar, en otoño";
+// "Siguiente (Primavera)" -> "Next spring" / "La próxima primavera"
+export function plantingWindow(s, lang = 'en') {
   const m = fold(s).match(/^(inmediata|siguiente)\s*\((.+)\)$/)
   if (!m) return tidy(s)
+  if (lang === 'es') {
+    const season = SEASONS_ES[m[2]] || m[2]
+    return m[1] === 'inmediata' ? `Justo después de cosechar, en ${season}` : `${season === 'otoño' || season === 'verano' || season === 'invierno' ? 'El próximo' : 'La próxima'} ${season}`
+  }
   const season = SEASONS[m[2]] || m[2]
   return m[1] === 'inmediata' ? `Right after harvest, in ${season}` : `Next ${season}`
 }
 
 const isImmediate = (s) => fold(s).startsWith('inmediata')
 
-export const compatibility = (s) => ({ label: from(COMPAT, s), best: fold(s) === 'optima' })
+export const compatibility = (s, lang = 'en') => ({ label: pick(lang, COMPAT, COMPAT_ES, s), best: fold(s) === 'optima' })
 
 const round = (n) => (typeof n === 'number' ? Math.round(n) : null)
 
 // Groups the flat rows into one option per crop to plant now, best first.
-export function shapeResult(data) {
+export function shapeResult(data, lang = 'en') {
   const byOption = new Map()
   for (const r of data.rotaciones || []) {
     if (!byOption.has(r.Opcion_Hoy)) {
       byOption.set(r.Opcion_Hoy, {
         id: r.Opcion_Hoy,
-        crop: cropName(r.Cultivo_Hoy),
+        crop: cropName(r.Cultivo_Hoy, lang),
         score: round(r.Score_Hoy),
         scores: { water: round(r.Score_Agua_Hoy), soil: round(r.Score_Suelo_Hoy), income: round(r.Score_Ingreso_Hoy) },
         next: [],
       })
     }
     byOption.get(r.Opcion_Hoy).next.push({
-      crop: cropName(r.Siguiente_Cultivo),
-      window: plantingWindow(r.Ventana_Siembra),
+      crop: cropName(r.Siguiente_Cultivo, lang),
+      window: plantingWindow(r.Ventana_Siembra, lang),
       immediate: isImmediate(r.Ventana_Siembra),
-      fit: compatibility(r.Compatibilidad),
+      fit: compatibility(r.Compatibilidad, lang),
       score: round(r.Score_Sucesion),
-      why: from(REASONS, r.Razon_Agronomica),
+      why: pick(lang, REASONS, null, r.Razon_Agronomica),
     })
   }
   const options = [...byOption.values()]
@@ -144,11 +174,11 @@ export function shapeResult(data) {
 
   const perennials = (data.extras_perennes || [])
     .map((p) => ({
-      crop: cropName(p.Arbol_o_Perenne),
+      crop: cropName(p.Arbol_o_Perenne, lang),
       score: round(p.Score_Total),
       scores: { water: round(p.Agua), soil: round(p.Suelo), income: round(p.Ingreso) },
-      harvest: from(HARVEST, p.Cosecha),
-      care: from(MANAGEMENT, p.Manejo_Huerto),
+      harvest: pick(lang, HARVEST, null, p.Cosecha),
+      care: pick(lang, MANAGEMENT, null, p.Manejo_Huerto),
     }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
 

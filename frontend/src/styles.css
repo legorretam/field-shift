@@ -447,6 +447,9 @@ input[type='search']:focus {
   background: #0b1a26;
   cursor: crosshair;
 }
+.is-graphic .map {
+  background: #e4e6df;
+}
 .leaflet-container {
   font-family: var(--sans);
 }
@@ -582,6 +585,118 @@ input[type='search']:focus {
   border-radius: 50%;
   background: var(--cereal);
   box-shadow: 0 0 0 2px var(--paper);
+}
+
+/* Two choices side by side: language, map style. */
+.seg-toggle {
+  flex: none;
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  background: rgba(23, 33, 23, 0.06);
+  border: 1px solid var(--line);
+}
+.seg-toggle button {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 600 12px/1.2 var(--sans);
+  cursor: pointer;
+  transition: background-color 180ms var(--ease), color 180ms var(--ease);
+}
+.seg-toggle button:hover {
+  color: var(--ink);
+}
+.seg-toggle button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.seg-toggle button:focus-visible {
+  outline: 2px solid var(--alfalfa);
+  outline-offset: 2px;
+}
+.lang-toggle button {
+  padding: 5px 9px;
+  letter-spacing: 0.04em;
+}
+
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+/* Folding the map panel away */
+.map-panel[hidden] {
+  display: none;
+}
+.map-panel .display {
+  padding-right: 40px;
+}
+.panel-hide {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color 160ms var(--ease), border-color 160ms var(--ease);
+}
+.panel-hide:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+}
+.panel-hide:focus-visible,
+.dock-show:focus-visible {
+  outline: 2px solid var(--alfalfa);
+  outline-offset: 2px;
+}
+.panel-hide svg,
+.dock-show svg {
+  width: 20px;
+  height: 20px;
+}
+.map-dock {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  z-index: 500;
+  max-width: calc(100% - 56px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--paper);
+  border-radius: 999px;
+  box-shadow:
+    0 20px 40px -24px rgba(5, 15, 10, 0.55),
+    0 6px 16px -10px rgba(5, 15, 10, 0.25);
+  animation: screen-in 320ms var(--ease) both;
+}
+.dock-show {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.dock-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .toggle {
@@ -1812,11 +1927,34 @@ input[type='range']:active::-webkit-slider-thumb {
     font-size: var(--fs-3xl);
   }
   .topbar {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
     padding: 0 16px;
   }
-  .topbar-side {
+  /* The language switch stays; the data credit and sample flag step aside. */
+  .topbar-side .topbar-data,
+  .topbar-side .sample-flag {
     display: none;
+  }
+  .map-dock {
+    top: auto;
+    bottom: 30px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    flex-wrap: wrap;
+    border-radius: 18px;
+    padding: 10px;
+  }
+  .dock-name {
+    flex: 1;
+  }
+  .map-dock .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+  .score-key dl {
+    grid-template-columns: minmax(0, 1fr);
   }
   .steps {
     justify-self: end;
@@ -1848,7 +1986,7 @@ input[type='range']:active::-webkit-slider-thumb {
   }
   /* Once a field is picked, the sheet shows only what the next step needs. */
   .map-panel.has-point .display,
-  .map-panel.has-point .toggle,
+  .map-panel.has-point .map-controls,
   .map-panel.has-point .cell-note {
     display: none;
   }
@@ -2120,8 +2258,19 @@ input[type='range']:active::-webkit-slider-thumb {
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
-.fit-ring-sm {
+.option-score {
   grid-area: ring;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.score-cap {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.fit-ring-sm {
   width: 84px;
   height: 84px;
 }
@@ -2147,6 +2296,92 @@ input[type='range']:active::-webkit-slider-thumb {
   border-left: 1px solid var(--line);
   background: var(--ground);
 }
+.next-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.next-head .next-title {
+  margin-bottom: 0;
+}
+.next-head-score {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+
+/* How to read the scores */
+.score-key {
+  margin: -8px 0 24px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.score-key-title {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+.score-key-title .muted {
+  font-weight: 400;
+}
+.score-key dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 28px;
+  margin: 0;
+}
+.score-key dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.score-key dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.key-ring {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: conic-gradient(var(--alfalfa) 70%, var(--line) 0);
+  -webkit-mask: radial-gradient(circle, transparent 4.5px, #000 5px);
+  mask: radial-gradient(circle, transparent 4.5px, #000 5px);
+}
+.key-bars {
+  display: grid;
+  gap: 2px;
+  width: 16px;
+}
+.key-bars i {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--alfalfa);
+}
+.key-bars i:nth-child(2) {
+  width: 70%;
+  background: var(--ink);
+}
+.key-bars i:nth-child(3) {
+  width: 45%;
+}
+.key-num {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  min-width: 22px;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: var(--ground);
+  text-align: center;
+}
+
 .next-title {
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -2230,6 +2465,9 @@ input[type='range']:active::-webkit-slider-thumb {
   gap: 12px;
 }
 .perennial-score {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
   font-size: var(--fs-xs);
   color: var(--ink-2);
   white-space: nowrap;
@@ -2288,5 +2526,26 @@ input[type='range']:active::-webkit-slider-thumb {
   .fit-ring-sm {
     width: 68px;
     height: 68px;
+  }
+}
+
+/* The score key stacks on narrow screens (kept last so it wins over the base rule). */
+@media (max-width: 900px) {
+  .score-key dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On phones the fold button sits in its own row at the top of the sheet. */
+@media (max-width: 900px) {
+  .map-panel {
+    padding-top: 52px;
+  }
+  .panel-hide {
+    top: 10px;
+    right: 12px;
+  }
+  .map-panel .display {
+    padding-right: 0;
   }
 }

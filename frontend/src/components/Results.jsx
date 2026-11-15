@@ -1,17 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { formatCell } from '../lib.js'
 import { shapeResult } from '../model.js'
+import { useI18n } from '../i18n.jsx'
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-const SCORES = [
-  { key: 'water', label: 'Water' },
-  { key: 'soil', label: 'Soil' },
-  { key: 'income', label: 'Income' },
-]
+const SCORES = ['water', 'soil', 'income']
 
 export default function Results({ status, error, result, request, point, sample, onRetry, onEdit, onPickAgain }) {
-  const label = point?.label || 'Your field'
+  const { t, cell } = useI18n()
+  const label = point?.label || (point ? t('map.cellAt', { c: cell(point) }) : t('res.yourField'))
 
   if (status === 'loading') return <Loading label={label} />
 
@@ -19,14 +14,11 @@ export default function Results({ status, error, result, request, point, sample,
     return (
       <section className="results screen">
         <div className="error-panel" role="alert">
-          <h1 className="h2">No crop data for this square</h1>
-          <p>
-            The crop model covers farmland in the lower 48 states. This grid square has no data, which usually
-            means it is mostly water, city, or across the border.
-          </p>
+          <h1 className="h2">{t('res.outsideTitle')}</h1>
+          <p>{t('res.outsideBody')}</p>
           <div className="row-actions">
-            <button className="btn btn-primary" onClick={onPickAgain}>Pick another square</button>
-            <button className="btn btn-quiet" onClick={onRetry}>Try again</button>
+            <button className="btn btn-primary" onClick={onPickAgain}>{t('res.pickAgain')}</button>
+            <button className="btn btn-quiet" onClick={onRetry}>{t('res.retry')}</button>
           </div>
         </div>
       </section>
@@ -37,11 +29,11 @@ export default function Results({ status, error, result, request, point, sample,
     return (
       <section className="results screen">
         <div className="error-panel" role="alert">
-          <h1 className="h2">Results didn’t load</h1>
-          <p>{error || 'The crop model sent nothing back.'}</p>
+          <h1 className="h2">{t('res.errTitle')}</h1>
+          <p>{error?.key ? t(error.key, error.vars) : error?.text || t('res.errEmpty')}</p>
           <div className="row-actions">
-            <button className="btn btn-primary" onClick={onRetry}>Try again</button>
-            <button className="btn btn-quiet" onClick={onEdit}>Change details</button>
+            <button className="btn btn-primary" onClick={onRetry}>{t('res.retry')}</button>
+            <button className="btn btn-quiet" onClick={onEdit}>{t('res.edit')}</button>
           </div>
         </div>
       </section>
@@ -52,6 +44,7 @@ export default function Results({ status, error, result, request, point, sample,
 }
 
 function Loading({ label }) {
+  const { t } = useI18n()
   // Render's free plan sleeps; the first answer after a quiet spell is slow. Say so.
   const [slow, setSlow] = useState(false)
   useEffect(() => {
@@ -64,20 +57,17 @@ function Loading({ label }) {
         <span className="loading-strips" aria-hidden="true">
           <i /><i /><i />
         </span>
-        <p className="lede">Running the crop model for {label}…</p>
-        {slow && (
-          <p className="note">
-            The model server is waking up. The first answer after a quiet spell can take up to a minute.
-          </p>
-        )}
+        <p className="lede">{t('res.loading', { place: label })}</p>
+        {slow && <p className="note">{t('res.slow')}</p>}
       </div>
     </section>
   )
 }
 
 function Loaded({ result, request, point, label, sample, onEdit }) {
-  const { options, perennials } = useMemo(() => shapeResult(result), [result])
-  const best = Object.fromEntries(SCORES.map((s) => [s.key, Math.max(...options.map((o) => o.scores[s.key] ?? 0))]))
+  const { t, lang, cell, monthsLong } = useI18n()
+  const { options, perennials } = useMemo(() => shapeResult(result, lang), [result, lang])
+  const best = Object.fromEntries(SCORES.map((k) => [k, Math.max(...options.map((o) => o.scores[k] ?? 0))]))
   const w = request
   const weights = w.peso_agua + w.peso_suelo + w.peso_ingreso || 1
   const pct = (v) => Math.round((v / weights) * 100)
@@ -88,8 +78,7 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
         <p className="sample-note" role="note">
           <span className="sample-note-dot" aria-hidden="true" />
           <span>
-            <b>Sample data.</b> The app is set to VITE_API_URL=sample, so every answer is the built-in example for a
-            square in central Iowa in May, not the field you picked.
+            <b>{t('res.sampleBold')}</b> {t('res.sampleRest')}
           </span>
         </p>
       )}
@@ -98,20 +87,25 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
         <div>
           <h1 className="display">{label}</h1>
           <p className="lede">
-            Planting in {MONTH_NAMES[w.mes - 1]}, at {fmt(w.temp_actual)} °C on average with {fmt(w.precip_actual)} mm
-            of rain. Weighted {pct(w.peso_agua)}% water, {pct(w.peso_suelo)}% soil, {pct(w.peso_ingreso)}% income.
+            {t('res.lede', {
+              month: monthsLong[w.mes - 1],
+              t: fmt(w.temp_actual),
+              r: fmt(w.precip_actual),
+              w: pct(w.peso_agua),
+              s: pct(w.peso_suelo),
+              i: pct(w.peso_ingreso),
+            })}
           </p>
         </div>
-        <button className="btn btn-quiet" onClick={onEdit}>Change details</button>
+        <button className="btn btn-quiet" onClick={onEdit}>{t('res.edit')}</button>
       </header>
 
       <div className="section-head">
-        <h2 className="h2">What to plant now</h2>
-        <p className="note">
-          Each crop scores 0 to 100 for this square, weighted by your priorities. Under it, the crops that fit best
-          after it.
-        </p>
+        <h2 className="h2">{t('res.nowTitle')}</h2>
+        <p className="note">{t('res.nowNote')}</p>
       </div>
+
+      <ScoreKey />
 
       <ol className="options">
         {options.map((o, i) => (
@@ -120,27 +114,34 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
               <span className="option-rank" aria-hidden="true">{i + 1}</span>
               <div className="option-title">
                 <h3 className="option-name">{o.crop}</h3>
-                {i === 0 && <span className="tag tag-best">Best match</span>}
+                {i === 0 && <span className="tag tag-best">{t('res.best')}</span>}
               </div>
-              <div className="fit-ring fit-ring-sm" style={{ '--p': o.score }} role="img" aria-label={`Score ${o.score} of 100`}>
-                <span>
-                  <b>{o.score}</b>
-                  <small>of 100</small>
-                </span>
+              <div className="option-score">
+                <div className="fit-ring fit-ring-sm" style={{ '--p': o.score }} role="img" aria-label={t('score.ringAria', { n: o.score })}>
+                  <span>
+                    <b>{o.score}</b>
+                    <small>{t('score.of100')}</small>
+                  </span>
+                </div>
+                <span className="score-cap" aria-hidden="true">{t('score.overall')}</span>
               </div>
               <Meters scores={o.scores} best={best} row={i} />
             </div>
 
             <div className="option-next">
-              <h4 className="next-title">Then plant</h4>
+              <div className="next-head">
+                <h4 className="next-title">{t('res.then')}</h4>
+                <span className="next-head-score" aria-hidden="true">{t('score.follow')}</span>
+              </div>
               <ul className="next-list">
                 {o.next.map((n, k) => (
                   <li className="next" key={k}>
                     <div className="next-top">
                       <span className="next-crop">{n.crop}</span>
                       <span className={`tag ${n.fit.best ? 'tag-fit' : 'tag-current'}`}>{n.fit.label}</span>
-                      <span className="next-score" title="How well this crop follows the one before, 0 to 100">
-                        {n.score}
+                      <span className="next-score" title={t('score.keyFollow')}>
+                        <span className="sr-only">{t('score.followAria', { n: n.score })}</span>
+                        <span aria-hidden="true">{n.score}</span>
                       </span>
                     </div>
                     <p className="next-when">{n.window}</p>
@@ -156,8 +157,8 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
       {perennials.length > 0 && (
         <section className="perennials">
           <div className="section-head">
-            <h2 className="h2">Or switch to a perennial</h2>
-            <p className="note">Orchards and berry plantings stay for years instead of rotating every season.</p>
+            <h2 className="h2">{t('res.perTitle')}</h2>
+            <p className="note">{t('res.perNote')}</p>
           </div>
           <ul className="perennial-grid">
             {perennials.map((p, i) => (
@@ -165,17 +166,20 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
                 <div className="perennial-top">
                   <h3 className="option-name">{p.crop}</h3>
                   <span className="perennial-score">
-                    <b>{p.score}</b> of 100
+                    <span className="score-cap">{t('score.overall')}</span>
+                    <span>
+                      <b>{p.score}</b> {t('score.of100')}
+                    </span>
                   </span>
                 </div>
                 <Meters scores={p.scores} row={i} />
                 <dl className="perennial-facts">
                   <div>
-                    <dt>Harvest</dt>
+                    <dt>{t('res.harvest')}</dt>
                     <dd>{p.harvest}</dd>
                   </div>
                   <div>
-                    <dt>Care</dt>
+                    <dt>{t('res.care')}</dt>
                     <dd>{p.care}</dd>
                   </div>
                 </dl>
@@ -187,29 +191,68 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
 
       <footer className="results-foot">
         <p className="disclaimer">
-          Field Shift shows options to explore. Your own judgment and a local agronomist decide what goes in the
-          ground.
+          {t('res.disclaimer')}
         </p>
         <ul className="sources">
           <li>
             <a href="https://power.larc.nasa.gov/" target="_blank" rel="noreferrer">NASA POWER</a>
-            <span className="muted">, climate averages 2001 to 2025 for {formatCell(point)}</span>
+            <span className="muted">, {t('res.srcPower', { c: cell(point) })}</span>
           </li>
-          <li>Field Shift crop model, run on our server for each request</li>
+          <li>{t('res.srcModel')}</li>
         </ul>
       </footer>
     </section>
   )
 }
 
+// The three scores behind the overall one, each 0 to 100.
+function ScoreKey() {
+  const { t } = useI18n()
+  return (
+    <section className="score-key" aria-labelledby="score-key-title">
+      <h3 className="score-key-title" id="score-key-title">
+        {t('score.keyTitle')}
+        <span className="muted"> {t('score.scale')}</span>
+      </h3>
+      <dl>
+        <div>
+          <dt>
+            <span className="key-ring" aria-hidden="true" />
+            {t('score.overall')}
+          </dt>
+          <dd>{t('score.keyOverall')}</dd>
+        </div>
+        <div>
+          <dt>
+            <span className="key-bars" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+            {t('score.keyParts.title')}
+          </dt>
+          <dd>{t('score.keyParts')}</dd>
+        </div>
+        <div>
+          <dt>
+            <span className="key-num" aria-hidden="true">75</span>
+            {t('score.follow')}
+          </dt>
+          <dd>{t('score.keyFollow')}</dd>
+        </div>
+      </dl>
+    </section>
+  )
+}
+
 function Meters({ scores, best, row }) {
+  const { t } = useI18n()
   return (
     <div className="option-meters" style={{ '--row': row }}>
-      {SCORES.map((s) => {
-        const v = scores[s.key]
+      {SCORES.map((k) => {
+        const v = scores[k]
+        const label = t(`score.${k}`)
         return (
-          <div className={`meter${best && v === best[s.key] ? ' is-best' : ''}`} key={s.key} title={`${s.label}: ${v} of 100`}>
-            <span className="meter-label">{s.label}</span>
+          <div className={`meter${best && v === best[k] ? ' is-best' : ''}`} key={k} title={t('score.meter', { k: label, v })}>
+            <span className="meter-label">{label}</span>
             <span className="meter-num">{v ?? '–'}</span>
             <span className="meter-track">
               <span className="meter-fill" style={{ width: `${v ?? 0}%` }} />

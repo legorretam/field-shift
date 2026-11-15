@@ -24,3 +24,14 @@ export function CheckIcon(props) {
     </svg>
   )
 }
+
+// A panel edge with an arrow: points left to tuck the panel away, right to bring it back.
+export function PanelIcon({ open = true, ...props }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+      <rect x="3" y="3.5" width="14" height="13" rx="2.5" />
+      <path d="M7.5 3.5v13" />
+      <path d={open ? 'm13 8-2 2 2 2' : 'm11 8 2 2-2 2'} />
+    </svg>
+  )
+}
