@@ -1904,3 +1904,389 @@ input[type='range']:active::-webkit-slider-thumb {
     gap: 32px;
   }
 }
+
+/* ==============================================================
+   R model screens (Nov 15): planting month + weather, results
+   ============================================================== */
+
+/* Month strip: the square's year, one button per month */
+.month-strip {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 4px;
+}
+.month-pick {
+  display: grid;
+  grid-template-rows: 64px auto auto;
+  gap: 4px;
+  justify-items: center;
+  padding: 8px 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease),
+    background-color 160ms var(--ease),
+    transform 220ms var(--ease);
+}
+.month-pick:hover {
+  border-color: var(--ink-3);
+  transform: translateY(-1px);
+}
+.month-pick:focus-visible {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 2px;
+}
+.month-pick[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+.month-bar {
+  position: relative;
+  width: 12px;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.month-bar span {
+  position: absolute;
+  inset: auto 0 0;
+  background: var(--rain);
+  border-radius: 3px;
+  transition: height 380ms var(--ease);
+}
+.month-pick[aria-pressed='true'] .month-bar {
+  background: rgba(255, 255, 255, 0.18);
+}
+.month-pick[aria-pressed='true'] .month-bar span {
+  background: var(--frost);
+}
+.month-temp {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  min-height: 1.2em;
+}
+.month-name {
+  font-size: 11.5px;
+  color: inherit;
+  opacity: 0.8;
+}
+
+/* Temperature and rain fields */
+.num-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+.num-field {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.num-input {
+  position: relative;
+}
+.num-input input {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 52px 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--ink);
+  font: 650 var(--fs-xl) / 1 var(--sans);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.num-input input:focus-visible {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 2px;
+  border-color: var(--ink);
+}
+.num-unit {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.num-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+.src-nasa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--aquifer);
+}
+.src-nasa::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 600 var(--fs-xs) / 1.4 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.link-btn:hover {
+  color: var(--alfalfa);
+}
+
+/* Results */
+.section-head {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.section-head .note {
+  max-width: 70ch;
+}
+.options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.option {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  overflow: hidden;
+  animation: screen-in 480ms var(--ease) both;
+  animation-delay: calc(var(--i) * 90ms);
+}
+.option.is-top {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.option-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'rank title ring'
+    'meters meters meters';
+  gap: 20px 16px;
+  align-items: center;
+  align-content: start;
+  padding: 26px 26px 28px;
+}
+.option-rank {
+  grid-area: rank;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+  font-weight: 700;
+}
+.option.is-top .option-rank {
+  background: var(--alfalfa);
+  color: var(--white);
+}
+.option-title {
+  grid-area: title;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.option-name {
+  font-size: var(--fs-xl);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.fit-ring-sm {
+  grid-area: ring;
+  width: 84px;
+  height: 84px;
+}
+.fit-ring-sm::before {
+  inset: 7px;
+  background: var(--paper);
+}
+.fit-ring-sm b {
+  font-size: var(--fs-xl);
+}
+.option-meters {
+  grid-area: meters;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.meter-label {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+.option-next {
+  padding: 22px 26px 24px;
+  border-left: 1px solid var(--line);
+  background: var(--ground);
+}
+.next-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+.next-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.next {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.next:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+.next-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.next-crop {
+  font-weight: 650;
+}
+.next-score {
+  margin-left: auto;
+  font-weight: 650;
+  font-size: var(--fs-md);
+}
+.next-when {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+.next-why {
+  margin-top: 4px;
+  font-family: var(--serif);
+  font-size: var(--fs-md);
+  line-height: 1.4;
+  color: var(--ink);
+}
+.tag-fit {
+  background: rgba(46, 107, 57, 0.14);
+  color: var(--alfalfa-deep);
+}
+
+.perennials {
+  margin-top: 72px;
+  padding-top: 32px;
+  border-top: 1.5px solid var(--ink);
+}
+.perennial-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.perennial {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  padding: 22px 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  animation: screen-in 480ms var(--ease) both;
+  animation-delay: calc(var(--i) * 90ms + 200ms);
+}
+.perennial-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.perennial-score {
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.perennial-score b {
+  font-size: var(--fs-xl);
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.perennial .option-meters {
+  grid-area: auto;
+}
+.perennial-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.perennial-facts div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+}
+.perennial-facts dt {
+  color: var(--ink-2);
+}
+.perennial-facts dd {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .option {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .option-next {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 640px) {
+  .month-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .month-pick {
+    grid-template-rows: 44px auto auto;
+  }
+  .num-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .option-main {
+    padding: 20px 18px 22px;
+  }
+  .option-next {
+    padding: 18px;
+  }
+  .fit-ring-sm {
+    width: 68px;
+    height: 68px;
+  }
+}

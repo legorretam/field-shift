@@ -8,7 +8,8 @@ Una web para agricultores de Estados Unidos: marcan su parcela, dice qué siembr
 ```
 field-shift/
   frontend/   React + Vite. Lo que ve el usuario. (Marcelo)
-  backend/    Python + FastAPI. Datos de NASA y lógica de rotación. (equipo backend)
+  backend/    Python + FastAPI (versión anterior) y los CSV de NASA POWER en backend/data/climate/.
+  backend-r/  plumber.R: la API de R que corre en Render (https://api-agro-r.onrender.com). (equipo backend)
   contract/   El formato JSON acordado entre los dos. NO se cambia sin avisar.
   REFERENCES.md  Todo recurso externo que usemos (obligatorio para la entrega).
 ```
@@ -25,7 +26,7 @@ npm install        # solo la primera vez
 npm run dev        # abre http://localhost:5173
 ```
 
-Sin configurar nada, usa los datos de ejemplo de `contract/` (se ve la etiqueta "Sample data").
+Sin configurar nada, habla con el modelo de R en Render. Para trabajar sin servidor, crea `frontend/.env.local` con `VITE_API_URL=sample` (se ve la etiqueta "Sample data").
 
 ## Correr el backend
 
@@ -39,29 +40,38 @@ uvicorn main:app --reload        # http://localhost:8000/docs
 
 ## Conectar los dos
 
-En `frontend/`, copia `.env.example` como `.env.local` y pon:
+El frontend ya apunta a `https://api-agro-r.onrender.com` por defecto (ver `frontend/src/api.js`).
+Para usar otro servidor, pon su URL en `VITE_API_URL` (en `.env.local` o en Vercel).
 
+## El contrato (modelo de R)
+
+`POST /api/recomendar` recibe JSON:
+
+```json
+{ "lat": 42, "lon": -93.75, "mes": 11, "temp_actual": 3.1, "precip_actual": 40,
+  "peso_agua": 50, "peso_suelo": 30, "peso_ingreso": 20 }
 ```
-VITE_API_URL=http://localhost:8000
-```
 
-Reinicia `npm run dev`. La etiqueta "Sample data" desaparece y los datos vienen del backend.
+- `lat`, `lon`: centro de una celda de NASA POWER: `lat = 24 + 0.5·i`, `lon = −125 + 0.625·j`.
+- `mes`: 1 a 12. `temp_actual`: temperatura media del mes, °C. `precip_actual`: lluvia total del mes, mm.
+  El frontend los llena solo con el promedio 2001-2025 de esa celda (`frontend/public/climate-monthly.json`,
+  generado de `backend/data/climate/power_climatology_2001_2025_conus.csv` con `node frontend/scripts/make-climate.mjs`).
+- Pesos: cualquier número de 0 a 100; el modelo los normaliza.
 
-## El contrato
+Respuesta: ver `contract/recomendar-sample-response.json`. `rotaciones` viene plano (una fila por pareja
+cultivo de hoy → siguiente cultivo); el frontend lo agrupa por `Opcion_Hoy` y traduce los textos al inglés
+en `frontend/src/model.js`. Si el modelo agrega un cultivo o una razón nueva, agrégala ahí (si no, se
+muestra el texto original en español).
 
-- `GET /api/crops` → lista de `contract/crops.json`
-- `POST /api/analyze` → recibe `{ lat, lon, current_rotation, priorities }` y regresa lo de `contract/sample-response.json`
-
-`lat` y `lon` siempre llegan como el **centro de una celda** de la cuadrícula de NASA POWER: `lat = 24 + 0.5·i`, `lon = −125 + 0.625·j` (i, j enteros). Son los mismos valores de las columnas `lat` y `lon` de `backend/data/climate/power_climatology_2001_2025_conus.csv`, así que el backend puede buscar la fila directo.
-
-Reglas: la unidad va en el nombre del campo (`_mm`, `_c`); puntajes de 0 a 100 (más alto es mejor); `strategies` tiene 3 elementos y el primero es la rotación actual; textos en inglés.
-Si cambias el contrato, actualiza también las copias en `frontend/src/mock/` y `backend/data/`.
+Si el punto no tiene datos, el servidor contesta `{ "status": "error", "mensaje": ... }` (con el
+`plumber.R` de `backend-r/`) o un 500 (versión anterior). El frontend muestra "No crop data for this square"
+en los dos casos.
 
 ## Publicar
 
-- **Frontend en Vercel:** New Project → importa el repo → Root Directory: `frontend` → en Environment Variables pon `VITE_API_URL` con la URL de Render.
+- **Frontend en Vercel:** New Project → importa el repo → Root Directory: `frontend`. No necesita variables: ya usa la URL de Render.
 - **Backend en Render:** New → Web Service → el repo → Root Directory: `backend` → Build: `pip install -r requirements.txt` → Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-- Render gratis se duerme: abre `/api/health` un minuto antes de cualquier demo.
+- Render gratis se duerme: abre https://api-agro-r.onrender.com/ un minuto antes de cualquier demo. La app también lo despierta sola al abrirse.
 
 ## Rutina con GitHub Desktop
 

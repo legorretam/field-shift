@@ -1,35 +1,88 @@
 // Single place where the frontend talks to the backend.
-// With no VITE_API_URL set, it answers from the sample files so the UI
-// can be built before the backend exists. Same shape as contract/.
-import sample from './mock/sample-response.json'
-import sampleCrops from './mock/crops.json'
+// The live model is the team's R API on Render. Set VITE_API_URL to point somewhere
+// else, or to "sample" to answer from src/mock/ with no server at all.
+import sample from './mock/sample-recomendar.json'
 
-const API = (import.meta.env?.VITE_API_URL || '').replace(/\/$/, '')
-export const usingSample = !API
+const RENDER_API = 'https://api-agro-r.onrender.com'
+const ENV_API = (import.meta.env?.VITE_API_URL || '').trim()
+export const usingSample = ENV_API.toLowerCase() === 'sample'
+const API = usingSample ? '' : (ENV_API || RENDER_API).replace(/\/$/, '')
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
-export async function getCrops() {
-  if (usingSample) return sampleCrops
-  const res = await fetch(`${API}/api/crops`)
-  if (!res.ok) throw new Error(`The server answered ${res.status} for /api/crops`)
-  return res.json()
+// Render's free plan sleeps when nobody uses it. Knock on the door as soon as the
+// page opens so the server is awake by the time the farmer asks for results.
+export function wakeServer() {
+  if (usingSample) return
+  fetch(`${API}/`).catch(() => {})
 }
 
-// body = { lat, lon, current_rotation: [mainCropId, offSeasonCropId], priorities: { water, soil, income } }
-export async function analyze(body) {
+// Raised when the model has no data for the chosen place (the R code fails there).
+export class OutsideCoverageError extends Error {}
+
+// body = { lat, lon, mes, temp_actual, precip_actual, peso_agua, peso_suelo, peso_ingreso }
+// Returns { status, rotaciones: [...], extras_perennes: [...] } exactly as the R API sends it.
+export async function recommend(body, { timeoutMs = 120000 } = {}) {
   if (usingSample) {
     await wait(1100)
-    // Sample data describes one real place. Never relabel it as the field the user picked.
     return sample
   }
-  const res = await fetch(`${API}/api/analyze`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`The server answered ${res.status} for /api/analyze`)
-  return res.json()
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  let res
+  try {
+    res = await fetch(`${API}/api/recomendar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    })
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      throw new Error('The model took too long to answer. The server may still be waking up: try again in a moment.')
+    }
+    throw new Error('Could not reach the model server. Check your connection and try again.')
+  } finally {
+    clearTimeout(timer)
+  }
+
+  const data = await res.json().catch(() => null)
+  // The R code fails with a 500 for places it has no data for. Once the team adds the
+  // tryCatch it answers { status: "error", mensaje } instead; both mean the same here.
+  if (res.status === 500 || (data && data.status === 'error')) {
+    throw new OutsideCoverageError(data?.mensaje || 'No model data for this place.')
+  }
+  if (!res.ok || !data) throw new Error(`The model server answered ${res.status}.`)
+  if (!Array.isArray(data.rotaciones) || !data.rotaciones.length) {
+    throw new OutsideCoverageError('The model returned no options for this place.')
+  }
+  return data
+}
+
+// Monthly climate per NASA POWER grid cell, 2001-2025 averages, built from
+// backend/data/climate/power_climatology_2001_2025_conus.csv (see scripts/make-climate.mjs).
+// { "lat,lon": [[12 mean temps °C], [12 monthly rain totals mm]] }
+let climatePromise = null
+export function loadClimate() {
+  if (!climatePromise) {
+    climatePromise = fetch('/climate-monthly.json')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .catch((e) => {
+        climatePromise = null
+        throw e
+      })
+  }
+  return climatePromise
+}
+
+// Returns { temp: [12], rain: [12] } for a grid cell center, or null if the cell is not in the file.
+export async function cellClimate({ lat, lon }) {
+  const table = await loadClimate()
+  const row = table[`${lat},${lon}`]
+  return row ? { temp: row[0], rain: row[1] } : null
 }
 
 // Place names. Free, keyless services with CORS; every call has a timeout so the

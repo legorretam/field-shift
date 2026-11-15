@@ -243,8 +243,8 @@ export default function FieldMap({ point, onPick, onContinue }) {
       <aside className={`map-panel screen${point ? ' has-point' : ''}`}>
         <h1 className="display">Every field has a year.</h1>
         <p className="lede">
-          Pick the grid square that holds your field. We line up two decades of NASA and USDA data
-          against the rotations you could grow there.
+          Pick the grid square that holds your field. We read two decades of NASA climate for it and
+          score the crops you could plant there next.
         </p>
 
         <form className="search" onSubmit={onSearch} role="search">
