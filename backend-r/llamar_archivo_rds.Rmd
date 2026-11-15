@@ -1,0 +1,19 @@
+
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(mgcv)
+list2env(readRDS("modelo_agro_bundle.rds"), envir = .GlobalEnv)
+```
+
+Ejemplo 
+plan_suelo <- plan_completo_celda(
+  lat           = 41.5,
+  lon           = -93.125,
+  mes           = 9,
+  temp_actual   = 16.0,
+  precip_actual = 75,
+  peso_agua     = 15,
+  peso_suelo    = 70,
+  peso_ingreso  = 15
+)

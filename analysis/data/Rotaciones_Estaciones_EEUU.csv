@@ -1,0 +1,16 @@
+﻿Cultivo;Anterior_Favorable;Siguiente_Recomendado;Epoca_Siembra;Epoca_Cosecha;Tipo_Ciclo
+Maiz;Alfalfa, guisantes;Trigo de invierno, centeno de cobertura;Primavera;Otoño;Anual
+Heno_Forraje;Maíz, cereales, leguminosas;Maíz, trigo o nueva cobertura según composición;Primavera / Otoño;Múltiples cortes;Perenne/Anual
+Bayas_Cana;Leguminosas y cobertura, tras comprobar sanidad;"Mantener plantación; luego rotar fuera del bloque";Primavera;Verano;Perenne
+Blueberries;Cultivo anual y preparación específica del suelo;Mantener plantación;Primavera;Verano;Perenne
+Arboles_Frutales;Leguminosa, forraje y cobertura;Mantener huerto y cobertura entre hileras;Primavera;Verano / Otoño;Perenne
+Papas;Cereales y leguminosas, con comprobación sanitaria;Centeno de cobertura, después leguminosa;Primavera;Finales de Verano / Otoño;Anual
+Sorgo;Trigo o leguminosa;Trigo de invierno o cobertura;Finales de Primavera / Verano;Otoño;Anual
+Alfalfa;Cereal pequeño o cultivo de establecimiento compatible;Maíz o sorgo, según agua y nitrógeno;Primavera / Otoño;Múltiples cortes;Perenne
+Guisantes_Arvejas;Maíz, sorgo u otro cultivo no leguminoso;Trigo de invierno o de primavera;Primavera temprana;Verano;Anual
+Trigo_Invierno;Guisantes, maíz u otro cultivo no cereal;Maíz, sorgo o leguminosa;Otoño;Verano del año siguiente;Anual (Invernal)
+Uvas_Vinedos;Leguminosa, forraje y cobertura antes de plantar;Mantener viñedo y coberturas;Primavera;Otoño;Perenne
+Centeno;Papa, maíz, sorgo o cultivo de cosecha temprana;Maíz o leguminosa, según terminación;Otoño;Primavera / Verano;Anual (Invernal)
+Trigo_Primavera;Leguminosa, papa u otro cultivo no cereal;Maíz, sorgo o cobertura;Primavera;Finales de Verano;Anual
+Arboles_Navidad;Forraje, leguminosa y preparación del sitio;Mantener plantación;Primavera;Invierno (tras varios años);Perenne (Largo plazo)
+Manzanas;Forraje, leguminosa y cobertura antes de plantar;Mantener huerto y coberturas;Primavera;Otoño;Perenne

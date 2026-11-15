@@ -1,0 +1,1201 @@
+```{r}
+library(sf)
+library(dplyr)
+
+
+# 1. Cargar tu tabla
+Clima<- read.csv("power_monthly_2020_2025_conus.csv" , skip = 1, header = FALSE,sep = ";")
+suelo <- read.csv("Lower48_Propiedades_Suelo_55km.csv", skip = 1, header = FALSE,sep = ";")
+suelo <- read.csv("Lower48_Propiedades_Suelo_55km.csv", skip = 1, header = FALSE,sep = ";")
+j = 2
+lat_unicas <- c(
+  24.0, 24.5, 25.0, 25.5, 26.0, 26.5, 27.0, 27.5, 28.0, 28.5,
+  29.0, 29.5, 30.0, 30.5, 31.0, 31.5, 32.0, 32.5, 33.0, 33.5,
+  34.0, 34.5, 35.0, 35.5, 36.0, 36.5, 37.0, 37.5, 38.0, 38.5,
+  39.0, 39.5, 40.0, 40.5, 41.0, 41.5, 42.0, 42.5, 43.0, 43.5,
+  44.0, 44.5, 45.0, 45.5, 46.0, 46.5, 47.0, 47.5, 48.0, 48.5,
+  49.0, 49.5, 50.0
+)
+
+lon_unicas <- c(
+  -125, -124.375, -123.75, -123.125, -122.5, -121.875, -121.25, -120.625,
+  -120, -119.375, -118.75, -118.125, -117.5, -116.875, -116.25, -115.625,
+  -115, -114.375, -113.75, -113.125, -112.5, -111.875, -111.25, -110.625,
+  -110, -109.375, -108.75, -108.125, -107.5, -106.875, -106.25, -105.625,
+  -105, -104.375, -103.75, -103.125, -102.5, -101.875, -101.25, -100.625,
+  -100,  -99.375,  -98.75,  -98.125,  -97.5,  -96.875,  -96.25,  -95.625,
+   -95,  -94.375,  -93.75,  -93.125,  -92.5,  -91.875,  -91.25,  -90.625,
+   -90,  -89.375,  -88.75,  -88.125,  -87.5,  -86.875,  -86.25,  -85.625,
+   -85,  -84.375,  -83.75,  -83.125,  -82.5,  -81.875,  -81.25,  -80.625,
+   -80,  -79.375,  -78.75,  -78.125,  -77.5,  -76.875,  -76.25,  -75.625,
+   -75,  -74.375,  -73.75,  -73.125,  -72.5,  -71.875,  -71.25,  -70.625,
+   -70,  -69.375,  -68.75,  -68.125,  -67.5,  -66.875,  -66.25,  -65.625,
+   -65
+)
+
+
+suelo_ph<-suelo[,]
+
+#Ph optimo
+ph_optimos <- c(6.5, 6.2, 6.0, 4.8, 6.4, 5.5, 6.5, 6.8, 6.5, 6.5, 6.3, 6.0, 6.5, 5.5, 6.3)
+Desv_Ph <- vector("list", 15)
+Porosidad_pct<-vector("list",15)
+Indice_Infiltracion<-vector("list",15)
+AWC<-vector("list",15)
+for (i in 1:15) {
+  Desv_Ph[[i]] <- abs(suelo[, 11] - ph_optimos[i])
+}
+
+#porosidad aparente 
+for (i in 1:15){
+  Porosidad_pct[[i]] <- (1 - (suelo[,12] / 2.65)) * 100
+}
+#indice infiltración
+arcilla   <- suelo[,5]   # Sustituye por el número de columna de arcilla
+pendiente <- suelo[, 14] # Sustituye por el número de columna de pendiente
+for (i in 1:15){
+Indice_Infiltracion[[i]] <- (1 - (arcilla / 100)) * (1 / (1 + 0.05 * pendiente))
+}
+
+arena   <- suelo[, 6]   # Sustituye por el número de columna de arena (%)
+limo    <- suelo[, 7]    # Sustituye por el número de columna de limo (%)
+
+# Resultado en mm de agua retenida por metro de suelo (rango normal: 80 a 210 mm/m)
+for (i in 1:15){
+AWC[[i]] <- (0.001 * arena + 0.0022 * limo + 0.0015 * arcilla) * 1000
+}
+#variables dependientes del suelo
+mes     <- Clima[, 5]
+t_media <- Clima[, 6]
+
+# Días exactos por cada mes (enero a diciembre)
+dias_por_mes <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+dias_mes     <- dias_por_mes[mes]
+
+# 2. Umbrales fisiológicos (°C) en el orden exacto de tus 15 cultivos
+t_base    <- c(10,  5,  5,  7,  6,  7, 10,  5,  4,  4, 10,  3,  4,  5,  5)
+t_techo   <- c(30, 25, 26, 28, 28, 25, 32, 28, 24, 25, 30, 24, 25, 24, 26)
+t_critica <- c(27, 24, 25, 26, 26, 23, 29, 26, 22, 24, 28, 23, 24, 23, 25)
+
+# 3. Inicializar las dos listas de 15 vectores
+GDD          <- vector("list", 15)
+Estres_Calor <- vector("list", 15)
+
+# 4. Calcular ambos parámetros mes a mes para cada cultivo i
+for (i in 1:15) {
+  # Grados Día de Crecimiento mensuales
+  GDD[[i]] <- pmax(0, pmin(t_media, t_techo[i]) - t_base[i]) * dias_mes
+  # Estrés por exceso de calor mensual
+  Estres_Calor[[i]] <- pmax(0, t_media - t_critica[i]) * dias_mes
+}
+
+
+
+
+# ==============================================================================
+# 1. CARGAR ZONAS DE CULTIVO (1 AL 15) Y RESULTADOS SATELITALES
+
+# 1. Cargar zonas de cultivo desde CSV (corrige 'skip = 1' y asigna nombres de columna)
+zonas_cultivos <- read.csv("Cultivos_1_15_Asignados.csv", skip = 1, header = FALSE, sep = ";")
+if (ncol(zonas_cultivos) == 1) {
+  zonas_cultivos <- read.csv("Cultivos_1_15_Asignados.csv", skip = 1, header = FALSE, sep = ",")
+}
+if (ncol(zonas_cultivos) == 3) {
+  colnames(zonas_cultivos) <- c("cultivo", "lat", "lon")
+} else {
+  colnames(zonas_cultivos)[1:4] <- c("cultivo", "nombre_cultivo", "lat", "lon")
+}
+
+# Cargar tabla satelital (agrega .csv al nombre del archivo)
+resultados <- read.csv("Lower48_Planta_NDVI_NDMI_55km.csv", header = TRUE, sep = ";")
+if (ncol(resultados) == 1) {
+  resultados <- read.csv("Lower48_Planta_NDVI_NDMI_55km.csv", header = TRUE, sep = ",")
+}
+# ==============================================================================
+# 2. FILTRAR CULTIVO ACTIVO Y AJUSTAR COORDENADAS AL LÍMITE INFERIOR DE LA MALLA
+# ==============================================================================
+# Nota: Cambia 70 por 0.70 si Suelo_Desnudo_pct está en escala de 0 a 1
+resultados_activos <- resultados %>%
+  filter(
+    Latitud  >= 24   & Latitud  <= 50,
+    Longitud >= -125 & Longitud <= -65,
+    Suelo_Desnudo_pct < 70,
+    NDVI > 0.20,
+    !is.na(NDVI),
+    !is.na(NDMI)
+  ) %>%
+  mutate(
+    lat_malla = round(24   + floor((Latitud  - 24)     / 0.5   + 1e-9) * 0.5,   1),
+    lon_malla = round(-125 + floor((Longitud - (-125)) / 0.625 + 1e-9) * 0.625, 3)
+  )
+
+# ==============================================================================
+# 3. LLAVES DE EMPAREJAMIENTO PARA SUELO Y CLIMA
+# ==============================================================================
+llave_suelo <- paste(round(suelo[, 1], 1), round(suelo[, 2], 3))
+llave_clima <- paste(round(Clima[, 1], 1), round(Clima[, 2], 3), Clima[, 4], Clima[, 5])
+
+llave_res_espacio <- paste(resultados_activos$lat_malla, resultados_activos$lon_malla)
+llave_res_tiempo  <- paste(llave_res_espacio, resultados_activos$Anio, resultados_activos$Mes)
+
+# ==============================================================================
+# 4. FILTRAR Y ALINEAR PARÁMETROS (X) Y VARIABLES OBJETIVO (Y) POR ZONA (1 A 15)
+# ==============================================================================
+coords_zona       <- vector("list", 15)
+datos_zona        <- vector("list", 15) # Tabla completa lista para lm() por cada cultivo i
+
+# Listas de vectores individuales por zona (por si los prefieres separados)
+Desv_Ph_zona      <- vector("list", 15)
+Porosidad_zona    <- vector("list", 15)
+Infiltracion_zona <- vector("list", 15)
+AWC_zona          <- vector("list", 15)
+GDD_zona          <- vector("list", 15)
+Estres_Calor_zona <- vector("list", 15)
+NDVI_zona         <- vector("list", 15)
+NDMI_zona         <- vector("list", 15)
+
+for (i in 1:15) {
+  # 1) Extraer coordenadas (lat, lon) asignadas al cultivo i
+  coords_i <- zonas_cultivos %>%
+    filter(cultivo == i) %>%
+    select(lat, lon)
+  coords_zona[[i]] <- as.data.frame(coords_i)
+  
+  llave_zona_i <- paste(round(coords_i$lat, 1), round(coords_i$lon, 3))
+  
+  # 2) Filtrar las filas satelitales que caen dentro de la zona del cultivo i
+  filas_y <- which(llave_res_espacio %in% llave_zona_i)
+  
+  # 3) Buscar la fila exacta correspondiente en suelo y en Clima
+  idx_suelo <- match(llave_res_espacio[filas_y], llave_suelo)
+  idx_clima <- match(llave_res_tiempo[filas_y],  llave_clima)
+  
+  # Descartar posibles filas sin cruce en clima/suelo
+  validos   <- which(!is.na(idx_suelo) & !is.na(idx_clima))
+  filas_y   <- filas_y[validos]
+  idx_suelo <- idx_suelo[validos]
+  idx_clima <- idx_clima[validos]
+  
+  # 4) Guardar vectores alineados (mismo largo exacto en X y en Y)
+  Desv_Ph_zona[[i]]      <- Desv_Ph[[i]][idx_suelo]
+  Porosidad_zona[[i]]    <- Porosidad_pct[[i]][idx_suelo]
+  Infiltracion_zona[[i]] <- Indice_Infiltracion[[i]][idx_suelo]
+  AWC_zona[[i]]          <- AWC[[i]][idx_suelo]
+  GDD_zona[[i]]          <- GDD[[i]][idx_clima]
+  Estres_Calor_zona[[i]] <- Estres_Calor[[i]][idx_clima]
+  NDVI_zona[[i]]         <- resultados_activos$NDVI[filas_y]
+  NDMI_zona[[i]]         <- resultados_activos$NDMI[filas_y]
+  
+  # 5) Armar el data.frame limpio de la zona i para correr lm() directamente
+  datos_zona[[i]] <- data.frame(
+    Estado              = resultados_activos$Estado[filas_y],
+    lat                 = resultados_activos$lat_malla[filas_y],
+    lon                 = resultados_activos$lon_malla[filas_y],
+    Anio                = resultados_activos$Anio[filas_y],
+    Mes                 = resultados_activos$Mes[filas_y],
+    Desv_Ph             = Desv_Ph_zona[[i]],
+    Porosidad_pct       = Porosidad_zona[[i]],
+    Indice_Infiltracion = Infiltracion_zona[[i]],
+    AWC                 = AWC_zona[[i]],
+    GDD                 = GDD_zona[[i]],
+    Estres_Calor        = Estres_Calor_zona[[i]],
+    NDVI                = NDVI_zona[[i]],
+    NDMI                = NDMI_zona[[i]]
+  )
+}
+
+```
+
+```{r}
+library(mgcv)
+# ==============================================================================
+# 5. GENERACIÓN DE MODELOS GAM POR CULTIVO
+# ==============================================================================
+
+# Inicializar listas para almacenar los modelos terminados
+modelos_GAM_NDVI <- vector("list", 15)
+modelos_GAM_NDMI <- vector("list", 15)
+
+# Nombres de cultivos para facilitar la lectura de los resultados
+nombres_cultivos <- c("Maiz", "Otro heno/forraje", "Bayas de cana", "Arandanos", 
+                      "Arboles frutales", "Papas", "Sorgo", "Alfalfa", "Guisantes", 
+                      "Trigo invierno", "Uvas", "Centeno", "Trigo primavera", 
+                      "Arboles navidad", "Manzanas")
+
+# Bucle para modelar cada uno de los 15 cultivos
+for (i in 1:15) {
+  
+  # Extraer la tabla ya alineada del cultivo activo
+  data_modelo <- datos_zona[[i]]
+  
+  # Limpieza de seguridad: remover filas que tengan algún NA en las variables clave
+  data_modelo <- na.omit(data_modelo[, c("NDVI", "NDMI", "GDD", "Desv_Ph", 
+                                         "Porosidad_pct", "Indice_Infiltracion", 
+                                         "AWC", "Estres_Calor")])
+  
+  # Validar que existan suficientes datos para correr el modelo (mínimo de puntos)
+  if (nrow(data_modelo) > 30) {
+    
+    # -------------------------------------------------------------------------
+    # MODELO 1: PREDICCIÓN DE NDVI (Vigor y Biomasa)
+    # s(GDD) aplica el suavizado (curva) al calor acumulado para simular fenología
+    # Las variables de suelo y estrés se mantienen como efectos lineales
+    # -------------------------------------------------------------------------
+    modelos_GAM_NDVI[[i]] <- gam(
+      NDVI ~ s(GDD) + Desv_Ph + Porosidad_pct + Indice_Infiltracion + AWC + Estres_Calor,
+      data = data_modelo,
+      method = "REML"
+    )
+    
+    # -------------------------------------------------------------------------
+    # MODELO 2: PREDICCIÓN DE NDMI (Estrés Hídrico y Humedad Foliar)
+    # -------------------------------------------------------------------------
+    modelos_GAM_NDMI[[i]] <- gam(
+      NDMI ~ s(GDD) + Desv_Ph + Porosidad_pct + Indice_Infiltracion + AWC + Estres_Calor,
+      data = data_modelo,
+      method = "REML"
+    )
+    
+    cat("Modelos creados exitosamente para cultivo:", nombres_cultivos[i], "- Filas usadas:", nrow(data_modelo), "\n")
+    
+  } else {
+    cat("Advertencia: No hay suficientes datos limpios para modelar", nombres_cultivos[i], "\n")
+  }
+}
+
+
+```
+
+```{r}
+library(mgcv)
+library(dplyr)
+
+# Listas en memoria para guardar un modelo calibrado por cultivo y por cada (lat, lon)
+modelos_malla_NDVI <- vector("list", 15)
+modelos_malla_NDMI <- vector("list", 15)
+diagnostico_malla  <- list()
+
+for (i in 1:15) {
+  
+  if (is.null(modelos_GAM_NDVI[[i]]) || is.null(modelos_GAM_NDMI[[i]])) next
+  
+  df_cultivo <- datos_zona[[i]] %>%
+    filter(
+      !is.na(NDVI), !is.na(NDMI), !is.na(GDD), !is.na(Desv_Ph),
+      !is.na(Porosidad_pct), !is.na(Indice_Infiltracion),
+      !is.na(AWC), !is.na(Estres_Calor)
+    )
+  
+  # 1. Predicción base de tus curvas GAM regionales
+  df_cultivo$pred_GAM_NDVI <- as.numeric(predict(modelos_GAM_NDVI[[i]], newdata = df_cultivo, type = "response"))
+  df_cultivo$pred_GAM_NDMI <- as.numeric(predict(modelos_GAM_NDMI[[i]], newdata = df_cultivo, type = "response"))
+  
+  # Llave única por cuadradito "lat_lon"
+  df_cultivo$id_celda <- paste(df_cultivo$lat, df_cultivo$lon, sep = "_")
+  lista_celdas <- split(df_cultivo, df_cultivo$id_celda)
+  
+  modelos_malla_NDVI[[i]] <- list()
+  modelos_malla_NDMI[[i]] <- list()
+  
+  for (id in names(lista_celdas)) {
+    df_c <- lista_celdas[[id]]
+    
+    # Ajuste local para NDVI
+    mod_loc_v <- lm(NDVI ~ pred_GAM_NDVI, data = df_c)
+    if (nrow(df_c) < 10 || is.na(coef(mod_loc_v)[2]) || coef(mod_loc_v)[2] <= 0.1) {
+      mod_loc_v <- lm(NDVI ~ offset(pred_GAM_NDVI), data = df_c)
+    }
+    
+    # Ajuste local para NDMI
+    mod_loc_m <- lm(NDMI ~ pred_GAM_NDMI, data = df_c)
+    if (nrow(df_c) < 10 || is.na(coef(mod_loc_m)[2]) || coef(mod_loc_m)[2] <= 0.1) {
+      mod_loc_m <- lm(NDMI ~ offset(pred_GAM_NDMI), data = df_c)
+    }
+    
+    # Guardar en memoria en su (lat, lon)
+    modelos_malla_NDVI[[i]][[id]] <- mod_loc_v
+    modelos_malla_NDMI[[i]][[id]] <- mod_loc_m
+    
+    diagnostico_malla[[length(diagnostico_malla) + 1]] <- data.frame(
+      cultivo       = i,
+      nombre        = nombres_cultivos[i],
+      id_celda      = id,
+      lat           = df_c$lat[1],
+      lon           = df_c$lon[1],
+      n_obs         = nrow(df_c),
+      sesgo_NDVI    = round(coef(mod_loc_v)[1], 4),
+      escala_NDVI   = ifelse(length(coef(mod_loc_v)) > 1, round(coef(mod_loc_v)[2], 4), 1),
+      R2_local_NDVI = round(cor(df_c$NDVI, fitted(mod_loc_v))^2, 3),
+      sesgo_NDMI    = round(coef(mod_loc_m)[1], 4),
+      escala_NDMI   = ifelse(length(coef(mod_loc_m)) > 1, round(coef(mod_loc_m)[2], 4), 1),
+      R2_local_NDMI = round(cor(df_c$NDMI, fitted(mod_loc_m))^2, 3)
+    )
+  }
+  
+  cat("Cultivo", i, "(", nombres_cultivos[i], ") -> Modelos en memoria:", length(modelos_malla_NDVI[[i]]), "celdas\n")
+}
+
+# Tabla resumen disponible directamente en R (sin exportar a CSV)
+tabla_diagnostico <- bind_rows(diagnostico_malla)
+```
+```{r}
+library(dplyr)
+
+llave_suelo <- paste(round(suelo[, 1], 1), round(suelo[, 2], 3))
+
+recomendar_cultivos_actual <- function(lat, lon, mes, temp_actual, precip_actual) {
+  
+  if (!mes %in% 1:12) stop("El parámetro 'mes' debe ser un número entero entre 1 y 12.")
+  
+  # 1. Ajustar coordenada al vértice exacto de la malla (0.5° x 0.625°)
+  lat_malla <- round(24   + floor((lat - 24)     / 0.5   + 1e-9) * 0.5,   1)
+  lon_malla <- round(-125 + floor((lon - (-125)) / 0.625 + 1e-9) * 0.625, 3)
+  id_celda  <- paste(lat_malla, lon_malla, sep = "_")
+  llave_pt  <- paste(lat_malla, lon_malla)
+  
+  # 2. Extraer propiedades del suelo del cuadradito
+  idx_s <- match(llave_pt, llave_suelo)
+  if (is.na(idx_s)) stop("Coordenada fuera de la malla de suelo.")
+  
+  ph_celda <- suelo[idx_s, 11]
+  poros_c  <- (1 - (suelo[idx_s, 12] / 2.65)) * 100
+  infilt_c <- (1 - (suelo[idx_s, 5] / 100)) * (1 / (1 + 0.05 * suelo[idx_s, 14]))
+  awc_c    <- (0.001 * suelo[idx_s, 6] + 0.0022 * suelo[idx_s, 7] + 0.0015 * suelo[idx_s, 5]) * 1000
+  dias     <- dias_por_mes[mes]
+  
+  # 3. Balance hídrico del mes actual (Precipitación + reserva útil de suelo vs demanda térmica)
+  demanda_et      <- pmax(20, 4.5 * temp_actual)     # Demanda evapotranspirativa aprox. (mm/mes)
+  reserva_suelo   <- awc_c * 0.20                    # Amortiguamiento hídrico del suelo (mm)
+  balance_hidrico <- (precip_actual + reserva_suelo) - demanda_et
+  
+  # 4. Evaluar los 15 cultivos bajo las condiciones actuales de esa celda
+  resultados_15 <- lapply(1:15, function(i) {
+    if (is.null(modelos_GAM_NDVI[[i]])) return(NULL)
+    
+    df_sim <- data.frame(
+      GDD                 = pmax(0, pmin(temp_actual, t_techo[i]) - t_base[i]) * dias,
+      Estres_Calor        = pmax(0, temp_actual - t_critica[i]) * dias,
+      Desv_Ph             = abs(ph_celda - ph_optimos[i]),
+      Porosidad_pct       = poros_c,
+      Indice_Infiltracion = infilt_c,
+      AWC                 = awc_c
+    )
+    
+    # Predicción base GAM regional
+    df_sim$pred_GAM_NDVI <- as.numeric(predict(modelos_GAM_NDVI[[i]], newdata = df_sim, type = "response"))
+    df_sim$pred_GAM_NDMI <- as.numeric(predict(modelos_GAM_NDMI[[i]], newdata = df_sim, type = "response"))
+    
+    # Ajuste local guardado en (lat, lon) si existe historial calibrado
+    mod_loc_v <- modelos_malla_NDVI[[i]][[id_celda]]
+    mod_loc_m <- modelos_malla_NDMI[[i]][[id_celda]]
+    
+    if (!is.null(mod_loc_v)) {
+      ndvi_est        <- as.numeric(predict(mod_loc_v, newdata = df_sim))
+      ndmi_est        <- as.numeric(predict(mod_loc_m, newdata = df_sim))
+      calibrado_local <- TRUE
+    } else {
+      ndvi_est        <- df_sim$pred_GAM_NDVI
+      ndmi_est        <- df_sim$pred_GAM_NDMI
+      calibrado_local <- FALSE
+    }
+    
+    # Componentes del puntaje (0 a 100)
+    score_vigor   <- pmin(100, pmax(0, (ndvi_est - 0.25) / (0.85 - 0.25) * 100))
+    score_humedad <- pmin(100, pmax(0, (ndmi_est - (-0.15)) / (0.40 - (-0.15)) * 100))
+    
+    # Penalizaciones por clima actual y suelo
+    penal_calor   <- pmin(30, df_sim$Estres_Calor * 0.40)
+    penal_ph      <- pmax(0, (df_sim$Desv_Ph - 0.5) * 15)
+    penal_sequia  <- ifelse(balance_hidrico < 0, pmin(25, abs(balance_hidrico) * 0.25), 0)
+    penal_exceso  <- ifelse(precip_actual > 180 & infilt_c < 0.45,
+                            pmin(15, (precip_actual - 180) * 0.10 * (1 - infilt_c)), 0)
+    
+    puntaje <- (0.55 * score_vigor) + (0.45 * score_humedad) -
+               penal_calor - penal_ph - penal_sequia - penal_exceso
+    
+    # Si el mes es demasiado frío para acumular calor útil (< 45 GDD), reducir viabilidad
+    if (df_sim$GDD < 45) puntaje <- puntaje * 0.3
+    puntaje <- round(pmin(100, pmax(0, puntaje)), 1)
+    
+    decision <- case_when(
+      puntaje >= 70 ~ "1. Muy recomendada",
+      puntaje >= 50 ~ "2. Viable / Aceptable",
+      TRUE          ~ "3. No recomendada"
+    )
+    
+    data.frame(
+      Celda              = id_celda,
+      Mes                = mes,
+      Cultivo_ID         = i,
+      Planta             = nombres_cultivos[i],
+      Puntaje_0_100      = puntaje,
+      Decision           = decision,
+      NDVI_est           = round(ndvi_est, 3),
+      NDMI_est           = round(ndmi_est, 3),
+      GDD_mes            = round(df_sim$GDD, 0),
+      Balance_Hidrico_mm = round(balance_hidrico, 1),
+      Desv_pH            = round(df_sim$Desv_Ph, 2),
+      Calibrada_Aqui     = calibrado_local
+    )
+  })
+  
+  bind_rows(resultados_15) %>% arrange(desc(Puntaje_0_100))
+}
+```
+
+```{r}
+# ==============================================================================
+# 7. INTEGRACIÓN EDÁFICA (11 VARIABLES) Y ROTACIONES EN CSV (SIN VENTANAS)
+
+# ==============================================================================
+# PROYECTO INTEGRAL: GAM POR CELDA + APTITUD EDÁFICA (11 VARS) + ROTACIONES
+# ==============================================================================
+
+library(sf)
+library(dplyr)
+library(tidyr)
+library(mgcv)
+library(ggplot2)
+
+# Si tus CSV están en otra carpeta, descomenta y ajusta esta línea:
+# setwd("C:/Ruta/A/Tu/Carpeta")
+
+# ==============================================================================
+# 0. FUNCIONES AUXILIARES (LECTURA CSV, LIMPIEZA DE TILDES Y MALLA)
+# ==============================================================================
+leer_csv_auto <- function(archivo, skip_rows = 0, has_header = TRUE) {
+  if (!file.exists(archivo)) {
+    stop(paste0("No se encontró '", archivo, "' en tu carpeta de trabajo: ", getwd()))
+  }
+  df <- read.csv(archivo, skip = skip_rows, header = has_header, sep = ";",
+                 stringsAsFactors = FALSE, check.names = FALSE)
+  if (ncol(df) == 1) {
+    df <- read.csv(archivo, skip = skip_rows, header = has_header, sep = ",",
+                   stringsAsFactors = FALSE, check.names = FALSE)
+  }
+  return(df)
+}
+
+limpiar_llave <- function(x) {
+  x <- as.character(x)
+  x_utf8 <- iconv(x, from = "", to = "UTF-8", sub = "")
+  x <- ifelse(is.na(x_utf8), x, x_utf8)
+  x <- tolower(x)
+  x <- chartr("\u00e1\u00e9\u00ed\u00f3\u00fa\u00fc\u00f1", "aeiouun", x)
+  gsub("[^a-z]", "", x)
+}
+
+obtener_id_celda <- function(lat, lon) {
+  lat_m <- round(24   + floor((lat - 24)     / 0.5   + 1e-9) * 0.5,   1)
+  lon_m <- round(-125 + floor((lon - (-125)) / 0.625 + 1e-9) * 0.625, 3)
+  paste(lat_m, lon_m, sep = "_")
+}
+
+# ==============================================================================
+# 1. CARGA DE BASES DE DATOS (CLIMA, SUELO, ZONAS Y SATÉLITE)
+# ==============================================================================
+cat("1/6 Cargando archivos CSV...\n")
+
+Clima <- leer_csv_auto("power_monthly_2020_2025_conus.csv", skip_rows = 1, has_header = FALSE)
+suelo <- leer_csv_auto("Lower48_Propiedades_Suelo_55km.csv", skip_rows = 1, has_header = FALSE)
+
+zonas_cultivos <- leer_csv_auto("Cultivos_1_15_Asignados.csv", skip_rows = 1, has_header = FALSE)
+if (ncol(zonas_cultivos) == 3) {
+  colnames(zonas_cultivos) <- c("cultivo", "lat", "lon")
+} else {
+  colnames(zonas_cultivos)[1:4] <- c("cultivo", "nombre_cultivo", "lat", "lon")
+}
+
+resultados <- leer_csv_auto("Lower48_Planta_NDVI_NDMI_55km.csv", skip_rows = 0, has_header = TRUE)
+
+cultivos <- leer_csv_auto("Requerimientos_Cultivos_EEUU.csv", skip_rows = 0, has_header = TRUE)
+if (all(grepl("^V[0-9]+$|^X", colnames(cultivos)))) {
+  cultivos <- leer_csv_auto("Requerimientos_Cultivos_EEUU.csv", skip_rows = 1, has_header = TRUE)
+}
+cultivos[, -1] <- lapply(cultivos[, -1], function(col) as.numeric(gsub(",", ".", as.character(col))))
+
+rotaciones <- leer_csv_auto("Rotaciones_Estaciones_EEUU.csv", skip_rows = 0, has_header = TRUE)
+if (all(grepl("^V[0-9]+$|^X", colnames(rotaciones)))) {
+  rotaciones <- leer_csv_auto("Rotaciones_Estaciones_EEUU.csv", skip_rows = 1, has_header = TRUE)
+}
+rotaciones <- rotaciones %>% mutate(key_clean = limpiar_llave(Cultivo))
+
+# ==============================================================================
+# 2. PARÁMETROS FISIOLÓGICOS Y VARIABLES EDÁFICAS / CLIMÁTICAS
+# ==============================================================================
+cat("2/6 Calculando parámetros edáficos y térmicos (GDD y estrés calórico)...\n")
+
+nombres_cultivos <- c("Maiz", "Otro heno/forraje", "Bayas de cana", "Arandanos",
+                      "Arboles frutales", "Papas", "Sorgo", "Alfalfa", "Guisantes",
+                      "Trigo invierno", "Uvas", "Centeno", "Trigo primavera",
+                      "Arboles navidad", "Manzanas")
+
+ph_optimos   <- c(6.5, 6.2, 6.0, 4.8, 6.4, 5.5, 6.5, 6.8, 6.5, 6.5, 6.3, 6.0, 6.5, 5.5, 6.3)
+t_base       <- c(10,  5,  5,  7,  6,  7, 10,  5,  4,  4, 10,  3,  4,  5,  5)
+t_techo      <- c(30, 25, 26, 28, 28, 25, 32, 28, 24, 25, 30, 24, 25, 24, 26)
+t_critica    <- c(27, 24, 25, 26, 26, 23, 29, 26, 22, 24, 28, 23, 24, 23, 25)
+dias_por_mes <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+Desv_Ph             <- vector("list", 15)
+Porosidad_pct       <- vector("list", 15)
+Indice_Infiltracion <- vector("list", 15)
+AWC                 <- vector("list", 15)
+
+arcilla   <- as.numeric(suelo[, 5])
+arena     <- as.numeric(suelo[, 6])
+limo      <- as.numeric(suelo[, 7])
+ph_val    <- as.numeric(suelo[, 11])
+dens_val  <- as.numeric(suelo[, 12])
+pendiente <- as.numeric(suelo[, 14])
+
+for (i in 1:15) {
+  Desv_Ph[[i]]             <- abs(ph_val - ph_optimos[i])
+  Porosidad_pct[[i]]       <- (1 - (dens_val / 2.65)) * 100
+  Indice_Infiltracion[[i]] <- (1 - (arcilla / 100)) * (1 / (1 + 0.05 * pendiente))
+  AWC[[i]]                 <- (0.001 * arena + 0.0022 * limo + 0.0015 * arcilla) * 1000
+}
+
+mes      <- as.integer(Clima[, 5])
+t_media  <- as.numeric(Clima[, 6])
+dias_mes <- dias_por_mes[mes]
+
+GDD          <- vector("list", 15)
+Estres_Calor <- vector("list", 15)
+
+for (i in 1:15) {
+  GDD[[i]]          <- pmax(0, pmin(t_media, t_techo[i]) - t_base[i]) * dias_mes
+  Estres_Calor[[i]] <- pmax(0, t_media - t_critica[i]) * dias_mes
+}
+
+# ==============================================================================
+# 3. ALINEACIÓN ESPACIOTEMPORAL (X e Y) POR ZONA DE CULTIVO (1 AL 15)
+# ==============================================================================
+cat("3/6 Alineando observaciones satelitales con suelo y clima...\n")
+
+resultados_activos <- resultados %>%
+  filter(
+    Latitud  >= 24   & Latitud  <= 50,
+    Longitud >= -125 & Longitud <= -65,
+    Suelo_Desnudo_pct < 70,
+    NDVI > 0.20,
+    !is.na(NDVI),
+    !is.na(NDMI)
+  ) %>%
+  mutate(
+    lat_malla = round(24   + floor((Latitud  - 24)     / 0.5   + 1e-9) * 0.5,   1),
+    lon_malla = round(-125 + floor((Longitud - (-125)) / 0.625 + 1e-9) * 0.625, 3)
+  )
+
+llave_suelo <- paste(round(as.numeric(suelo[, 1]), 1), round(as.numeric(suelo[, 2]), 3))
+llave_clima <- paste(round(as.numeric(Clima[, 1]), 1), round(as.numeric(Clima[, 2]), 3), Clima[, 4], Clima[, 5])
+
+llave_res_espacio <- paste(resultados_activos$lat_malla, resultados_activos$lon_malla)
+llave_res_tiempo  <- paste(llave_res_espacio, resultados_activos$Anio, resultados_activos$Mes)
+
+coords_zona       <- vector("list", 15)
+datos_zona        <- vector("list", 15)
+Desv_Ph_zona      <- vector("list", 15)
+Porosidad_zona    <- vector("list", 15)
+Infiltracion_zona <- vector("list", 15)
+AWC_zona          <- vector("list", 15)
+GDD_zona          <- vector("list", 15)
+Estres_Calor_zona <- vector("list", 15)
+NDVI_zona         <- vector("list", 15)
+NDMI_zona         <- vector("list", 15)
+
+for (i in 1:15) {
+  coords_i <- zonas_cultivos %>%
+    filter(cultivo == i) %>%
+    select(lat, lon)
+  coords_zona[[i]] <- as.data.frame(coords_i)
+
+  llave_zona_i <- paste(round(coords_i$lat, 1), round(coords_i$lon, 3))
+  filas_y      <- which(llave_res_espacio %in% llave_zona_i)
+
+  idx_suelo <- match(llave_res_espacio[filas_y], llave_suelo)
+  idx_clima <- match(llave_res_tiempo[filas_y],  llave_clima)
+
+  validos   <- which(!is.na(idx_suelo) & !is.na(idx_clima))
+  filas_y   <- filas_y[validos]
+  idx_suelo <- idx_suelo[validos]
+  idx_clima <- idx_clima[validos]
+
+  Desv_Ph_zona[[i]]      <- Desv_Ph[[i]][idx_suelo]
+  Porosidad_zona[[i]]    <- Porosidad_pct[[i]][idx_suelo]
+  Infiltracion_zona[[i]] <- Indice_Infiltracion[[i]][idx_suelo]
+  AWC_zona[[i]]          <- AWC[[i]][idx_suelo]
+  GDD_zona[[i]]          <- GDD[[i]][idx_clima]
+  Estres_Calor_zona[[i]] <- Estres_Calor[[i]][idx_clima]
+  NDVI_zona[[i]]         <- resultados_activos$NDVI[filas_y]
+  NDMI_zona[[i]]         <- resultados_activos$NDMI[filas_y]
+
+  datos_zona[[i]] <- data.frame(
+    Estado              = resultados_activos$Estado[filas_y],
+    lat                 = resultados_activos$lat_malla[filas_y],
+    lon                 = resultados_activos$lon_malla[filas_y],
+    Anio                = resultados_activos$Anio[filas_y],
+    Mes                 = resultados_activos$Mes[filas_y],
+    Desv_Ph             = Desv_Ph_zona[[i]],
+    Porosidad_pct       = Porosidad_zona[[i]],
+    Indice_Infiltracion = Infiltracion_zona[[i]],
+    AWC                 = AWC_zona[[i]],
+    GDD                 = GDD_zona[[i]],
+    Estres_Calor        = Estres_Calor_zona[[i]],
+    NDVI                = NDVI_zona[[i]],
+    NDMI                = NDMI_zona[[i]],
+    stringsAsFactors    = FALSE
+  )
+}
+
+# ==============================================================================
+# 4. ENTRENAMIENTO DE MODELOS GAM REGIONALES Y CALIBRACIÓN LOCAL POR CELDA
+# ==============================================================================
+cat("4/6 Entrenando modelos GAM y calibración local por celda...\n")
+
+modelos_GAM_NDVI   <- vector("list", 15)
+modelos_GAM_NDMI   <- vector("list", 15)
+modelos_malla_NDVI <- vector("list", 15)
+modelos_malla_NDMI <- vector("list", 15)
+diagnostico_malla  <- list()
+
+for (i in 1:15) {
+  data_modelo <- na.omit(datos_zona[[i]][, c("NDVI", "NDMI", "GDD", "Desv_Ph",
+                                             "Porosidad_pct", "Indice_Infiltracion",
+                                             "AWC", "Estres_Calor")])
+  if (nrow(data_modelo) <= 30) {
+    cat("  Advertencia: Pocos datos para", nombres_cultivos[i], "\n")
+    next
+  }
+
+  modelos_GAM_NDVI[[i]] <- gam(
+    NDVI ~ s(GDD) + Desv_Ph + Porosidad_pct + Indice_Infiltracion + AWC + Estres_Calor,
+    data = data_modelo, method = "REML"
+  )
+
+  modelos_GAM_NDMI[[i]] <- gam(
+    NDMI ~ s(GDD) + Desv_Ph + Porosidad_pct + Indice_Infiltracion + AWC + Estres_Calor,
+    data = data_modelo, method = "REML"
+  )
+
+  df_cultivo <- datos_zona[[i]] %>%
+    filter(
+      !is.na(NDVI), !is.na(NDMI), !is.na(GDD), !is.na(Desv_Ph),
+      !is.na(Porosidad_pct), !is.na(Indice_Infiltracion),
+      !is.na(AWC), !is.na(Estres_Calor)
+    )
+
+  df_cultivo$pred_GAM_NDVI <- as.numeric(predict(modelos_GAM_NDVI[[i]], newdata = df_cultivo, type = "response"))
+  df_cultivo$pred_GAM_NDMI <- as.numeric(predict(modelos_GAM_NDMI[[i]], newdata = df_cultivo, type = "response"))
+  df_cultivo$id_celda      <- paste(df_cultivo$lat, df_cultivo$lon, sep = "_")
+
+  lista_celdas <- split(df_cultivo, df_cultivo$id_celda)
+  modelos_malla_NDVI[[i]] <- list()
+  modelos_malla_NDMI[[i]] <- list()
+
+  for (id in names(lista_celdas)) {
+    df_c <- lista_celdas[[id]]
+
+    mod_loc_v <- lm(NDVI ~ pred_GAM_NDVI, data = df_c)
+    if (nrow(df_c) < 10 || is.na(coef(mod_loc_v)[2]) || coef(mod_loc_v)[2] <= 0.1) {
+      mod_loc_v <- lm(NDVI ~ offset(pred_GAM_NDVI), data = df_c)
+    }
+
+    mod_loc_m <- lm(NDMI ~ pred_GAM_NDMI, data = df_c)
+    if (nrow(df_c) < 10 || is.na(coef(mod_loc_m)[2]) || coef(mod_loc_m)[2] <= 0.1) {
+      mod_loc_m <- lm(NDMI ~ offset(pred_GAM_NDMI), data = df_c)
+    }
+
+    modelos_malla_NDVI[[i]][[id]] <- mod_loc_v
+    modelos_malla_NDMI[[i]][[id]] <- mod_loc_m
+
+    diagnostico_malla[[length(diagnostico_malla) + 1]] <- data.frame(
+      cultivo       = i,
+      nombre        = nombres_cultivos[i],
+      id_celda      = id,
+      lat           = df_c$lat[1],
+      lon           = df_c$lon[1],
+      n_obs         = nrow(df_c),
+      sesgo_NDVI    = round(coef(mod_loc_v)[1], 4),
+      escala_NDVI   = ifelse(length(coef(mod_loc_v)) > 1, round(coef(mod_loc_v)[2], 4), 1),
+      R2_local_NDVI = round(cor(df_c$NDVI, fitted(mod_loc_v))^2, 3),
+      sesgo_NDMI    = round(coef(mod_loc_m)[1], 4),
+      escala_NDMI   = ifelse(length(coef(mod_loc_m)) > 1, round(coef(mod_loc_m)[2], 4), 1),
+      R2_local_NDMI = round(cor(df_c$NDMI, fitted(mod_loc_m))^2, 3),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  cat(sprintf("  [OK] Cultivo %2d (%-17s) -> %d celdas calibradas\n",
+              i, nombres_cultivos[i], length(modelos_malla_NDVI[[i]])))
+}
+
+tabla_diagnostico <- bind_rows(diagnostico_malla)
+
+# ==============================================================================
+# 5. EVALUACIÓN EDÁFICA DE 11 VARIABLES Y REGLAS AGRONÓMICAS DE ROTACIÓN
+# ==============================================================================
+cat("5/6 Evaluando aptitud de 11 variables del suelo por celda...\n")
+
+suelos_df <- data.frame(
+  ID_Celda                = seq_len(nrow(suelo)),
+  Latitud                 = as.numeric(suelo[, 1]),
+  Longitud                = as.numeric(suelo[, 2]),
+  Estado                  = as.character(suelo[, 3]),
+  Altitud_m               = as.numeric(suelo[, 4]),
+  Arcilla_pct             = as.numeric(suelo[, 5]),
+  Arena_pct               = as.numeric(suelo[, 6]),
+  Limo_pct                = as.numeric(suelo[, 7]),
+  Materia_Organica_pct    = as.numeric(suelo[, 8]),
+  Agua_Disponible_AWC     = as.numeric(suelo[, 9]),
+  Factor_K_Erosion        = as.numeric(suelo[, 10]),
+  pH_Suelo                = as.numeric(suelo[, 11]),
+  Densidad_Aparente_g_cm3 = as.numeric(suelo[, 12]),
+  Infiltracion_Ksat_um_s  = as.numeric(suelo[, 13]),
+  Pendiente_pct           = as.numeric(suelo[, 14]),
+  Carbono_Organico_pct    = as.numeric(suelo[, 15]),
+  stringsAsFactors        = FALSE
+) %>%
+  mutate(
+    id_celda = obtener_id_celda(Latitud, Longitud)
+  )
+
+score_rango <- function(valor, minimo, maximo) {
+  ancho <- maximo - minimo
+  tolerancia <- ifelse(ancho == 0, 0.1, ancho * 0.5)
+  penal_bajo <- pmax(0, 100 - ((minimo - valor) / tolerancia) * 100)
+  penal_alto <- pmax(0, 100 - ((valor - maximo) / tolerancia) * 100)
+  ifelse(valor < minimo, penal_bajo, ifelse(valor > maximo, penal_alto, 100))
+}
+
+score_maximo <- function(valor, maximo) {
+  tolerancia <- maximo * 0.5
+  ifelse(valor <= maximo, 100, pmax(0, 100 - ((valor - maximo) / tolerancia) * 100))
+}
+
+resultados_lista <- lapply(seq_len(nrow(cultivos)), function(i) {
+  c_row <- cultivos[i, ]
+
+  s_mat <- cbind(
+    score_rango(suelos_df$Arcilla_pct,              c_row$Arcilla_min,  c_row$Arcilla_max),
+    score_rango(suelos_df$Arena_pct,                c_row$Arena_min,    c_row$Arena_max),
+    score_rango(suelos_df$Limo_pct,                 c_row$Limo_min,     c_row$Limo_max),
+    score_rango(suelos_df$Materia_Organica_pct,     c_row$MO_min,       c_row$MO_max),
+    score_rango(suelos_df$Agua_Disponible_AWC,      c_row$AWC_min,      c_row$AWC_max),
+    score_maximo(suelos_df$Factor_K_Erosion,        c_row$Factor_K_max),
+    score_rango(suelos_df$pH_Suelo,                 c_row$pH_min,       c_row$pH_max),
+    score_maximo(suelos_df$Densidad_Aparente_g_cm3, c_row$Densidad_max),
+    score_rango(suelos_df$Infiltracion_Ksat_um_s,   c_row$Ksat_min,     c_row$Ksat_max),
+    score_maximo(suelos_df$Pendiente_pct,           c_row$Pendiente_max),
+    score_rango(suelos_df$Carbono_Organico_pct,     c_row$Carbono_min,  c_row$Carbono_max)
+  )
+
+  data.frame(
+    ID_Celda         = suelos_df$ID_Celda,
+    id_celda         = suelos_df$id_celda,
+    Latitud          = suelos_df$Latitud,
+    Longitud         = suelos_df$Longitud,
+    Estado           = suelos_df$Estado,
+    Altitud_m        = suelos_df$Altitud_m,
+    Cultivo          = c_row$Cultivo,
+    key_cultivo      = limpiar_llave(c_row$Cultivo),
+    s_arcilla        = s_mat[, 1],
+    s_arena          = s_mat[, 2],
+    s_limo           = s_mat[, 3],
+    s_mo             = s_mat[, 4],
+    s_awc            = s_mat[, 5],
+    s_factor_k       = s_mat[, 6],
+    s_ph             = s_mat[, 7],
+    s_densidad       = s_mat[, 8],
+    s_ksat           = s_mat[, 9],
+    s_pendiente      = s_mat[, 10],
+    s_carbono        = s_mat[, 11],
+    Aptitud_Global   = round(rowMeans(s_mat, na.rm = TRUE), 2),
+    stringsAsFactors = FALSE
+  )
+})
+
+matriz_aptitud <- bind_rows(resultados_lista)
+
+aptitud_celda_lookup <- split(
+  matriz_aptitud[, c("Cultivo", "key_cultivo", "Estado", "Aptitud_Global")],
+  matriz_aptitud$id_celda
+)
+
+ranking_estado_cultivo <- matriz_aptitud %>%
+  group_by(Estado, Cultivo) %>%
+  summarise(
+    Celdas_Evaluadas  = n(),
+    Aptitud_Promedio  = round(mean(Aptitud_Global, na.rm = TRUE), 2),
+    Aptitud_Maxima    = round(max(Aptitud_Global, na.rm = TRUE), 2),
+    Pct_Tierra_Optima = round(mean(Aptitud_Global >= 80, na.rm = TRUE) * 100, 1),
+    .groups = "drop"
+  ) %>%
+  arrange(Estado, desc(Aptitud_Promedio))
+
+ganadores_por_estado <- ranking_estado_cultivo %>%
+  group_by(Estado) %>%
+  slice_max(order_by = Aptitud_Promedio, n = 1) %>%
+  arrange(desc(Aptitud_Promedio))
+
+puente_cultivos <- data.frame(
+  Cultivo_ID = 1:15,
+  Nombre_GAM = nombres_cultivos,
+  Nombre_Rot = c("Maiz", "Heno_Forraje", "Bayas_Cana", "Arandanos",
+                 "Arboles_Frutales", "Papas", "Sorgo", "Alfalfa", "Guisantes_Arvejas",
+                 "Trigo_Invierno", "Uvas", "Centeno", "Trigo_Primavera",
+                 "Arboles_Navidad", "Manzanas"),
+  Es_Perenne_Lenoso = c(FALSE, FALSE, TRUE, TRUE,
+                        TRUE, FALSE, FALSE, FALSE, FALSE,
+                        FALSE, TRUE, FALSE, FALSE,
+                        TRUE, TRUE),
+  stringsAsFactors = FALSE
+) %>%
+  mutate(key_clean = limpiar_llave(Nombre_Rot))
+
+reglas_transicion <- tribble(
+  ~Cultivo_Anterior, ~Cultivo_Siguiente, ~Ventana_Siembra, ~Compatibilidad, ~Razon_Agronomica,
+  "Maiz", "Trigo_Invierno",    "Inmediata (Otoño)",     "Óptima",     "Aprovecha el terreno en otoño; rompe ciclo de plagas del maíz",
+  "Maiz", "Centeno",           "Inmediata (Otoño)",     "Óptima",     "Cobertura invernal tras cosecha de otoño; evita erosión y lixiviación",
+  "Maiz", "Heno_Forraje",      "Inmediata (Otoño)",     "Compatible", "Establecimiento de pradera tras grano de otoño",
+  "Maiz", "Guisantes_Arvejas", "Siguiente (Primavera)", "Óptima",     "Leguminosa en primavera repone el nitrógeno consumido por el maíz",
+  "Maiz", "Papas",             "Siguiente (Primavera)", "Compatible", "Rotación viable en primavera tras descanso invernal",
+  "Papas", "Centeno",           "Inmediata (Otoño)",     "Óptima",     "Cobertura obligada tras remover suelo en cosecha de papa",
+  "Papas", "Trigo_Invierno",    "Inmediata (Otoño)",     "Compatible", "Cereal de invierno protege suelo suelto tras tubérculos",
+  "Papas", "Guisantes_Arvejas", "Siguiente (Primavera)", "Óptima",     "Leguminosa recomendada tras cobertura para recuperar estructura",
+  "Papas", "Trigo_Primavera",   "Siguiente (Primavera)", "Óptima",     "Cereal no hospedero de enfermedades de la papa",
+  "Papas", "Maiz",              "Siguiente (Primavera)", "Compatible", "Buen aprovechamiento de fertilidad residual en primavera",
+  "Sorgo", "Trigo_Invierno",    "Inmediata (Otoño)",     "Óptima",     "Sucesión directa de otoño tras cosecha de sorgo",
+  "Sorgo", "Centeno",           "Inmediata (Otoño)",     "Óptima",     "Cobertura invernal para proteger suelo en otoño",
+  "Sorgo", "Guisantes_Arvejas", "Siguiente (Primavera)", "Óptima",     "Leguminosa de primavera para fijar nitrógeno",
+  "Guisantes_Arvejas", "Trigo_Invierno",  "Inmediata (Otoño)",     "Óptima",     "Aprovecha el nitrógeno fijado por la arveja para siembra de otoño",
+  "Guisantes_Arvejas", "Alfalfa",         "Inmediata (Otoño)",     "Compatible", "Establecimiento tardío de verano/otoño",
+  "Guisantes_Arvejas", "Maiz",            "Siguiente (Primavera)", "Óptima",     "Excelente aporte de nitrógeno orgánico para maíz en primavera",
+  "Guisantes_Arvejas", "Trigo_Primavera", "Siguiente (Primavera)", "Óptima",     "Cereal de primavera beneficiado por leguminosa previa",
+  "Trigo_Invierno", "Sorgo",             "Inmediata (Verano)",    "Óptima",     "Doble cultivo tras cosecha de verano; tolera calor estival",
+  "Trigo_Invierno", "Alfalfa",           "Inmediata (Otoño)",     "Óptima",     "Siembra de otoño tras rastrojo de trigo",
+  "Trigo_Invierno", "Maiz",              "Siguiente (Primavera)", "Óptima",     "Rotación clásica cereal de invierno -> maíz de primavera",
+  "Trigo_Invierno", "Guisantes_Arvejas", "Siguiente (Primavera)", "Óptima",     "Leguminosa para cortar ciclo de cereales",
+  "Centeno", "Maiz",              "Inmediata (Primavera)", "Óptima",     "Siembra directa en primavera tras terminar centeno de cobertura",
+  "Centeno", "Guisantes_Arvejas", "Inmediata (Primavera)", "Óptima",     "Leguminosa tras cobertura de centeno",
+  "Centeno", "Sorgo",             "Inmediata (Verano)",    "Compatible", "Siembra tardía de primavera/verano",
+  "Trigo_Primavera", "Centeno",           "Inmediata (Otoño)",     "Óptima",     "Cobertura invernal tras cosecha de finales de verano",
+  "Trigo_Primavera", "Maiz",              "Siguiente (Primavera)", "Óptima",     "Cultivo principal en la siguiente primavera",
+  "Trigo_Primavera", "Sorgo",             "Siguiente (Primavera)", "Óptima",     "Alternativa tolerante a menor humedad en primavera/verano",
+  "Alfalfa", "Maiz",  "Siguiente (Primavera)", "Óptima", "Máximo aprovechamiento del nitrógeno fijado por la alfalfa",
+  "Alfalfa", "Sorgo", "Siguiente (Primavera)", "Óptima", "Excelente respuesta tras roturar pradera de alfalfa",
+  "Heno_Forraje", "Trigo_Invierno", "Inmediata (Otoño)",     "Óptima", "Siembra otoñal tras último corte de forraje",
+  "Heno_Forraje", "Maiz",           "Siguiente (Primavera)", "Óptima", "Aprovecha materia orgánica acumulada por el forraje"
+) %>%
+  mutate(
+    key_ant = limpiar_llave(Cultivo_Anterior),
+    key_sig = limpiar_llave(Cultivo_Siguiente)
+  )
+
+# ==============================================================================
+# 6. FUNCIONES DE RECOMENDACIÓN: ROTACIONES + EXTRA DE ÁRBOLES/PERENNES
+# ==============================================================================
+# ==============================================================================
+# 6. MOTOR DE DECISIÓN CON PESOS DE PRIORIDAD (AGUA / SUELO / INGRESO)
+# ==============================================================================
+cat("6/6 Compilando motor de recomendación con prioridades...\n")
+
+# Perfiles agronómicos por cultivo (orden 1..15 de nombres_cultivos):
+# 1:Maiz, 2:Heno, 3:Bayas, 4:Arandanos, 5:Frutales, 6:Papas, 7:Sorgo, 8:Alfalfa,
+# 9:Guisantes, 10:Trigo inv., 11:Uvas, 12:Centeno, 13:Trigo prim., 14:Arb. navidad, 15:Manzanas
+eficiencia_agua_base   <- c(45, 75, 50, 40, 55, 35, 95, 40, 80, 85, 80, 92, 72, 78, 50)
+reconstruye_suelo_base <- c(45, 90, 75, 75, 80, 25, 65, 95, 88, 85, 75, 96, 65, 85, 80)
+ingreso_comercial_base <- c(90, 65, 80, 82, 82, 88, 78, 80, 75, 85, 85, 55, 82, 70, 85)
+
+recomendar_cultivos_actual <- function(lat, lon, mes, temp_actual, precip_actual,
+                                       peso_agua = 50, peso_suelo = 30, peso_ingreso = 20) {
+  if (!mes %in% 1:12) stop("El parámetro 'mes' debe ser un número entero entre 1 y 12.")
+
+  suma_pesos <- peso_agua + peso_suelo + peso_ingreso
+  if (suma_pesos <= 0) stop("La suma de peso_agua, peso_suelo y peso_ingreso debe ser mayor a 0.")
+  w_agua    <- peso_agua / suma_pesos
+  w_suelo   <- peso_suelo / suma_pesos
+  w_ingreso <- peso_ingreso / suma_pesos
+
+  lat_malla <- round(24   + floor((lat - 24)     / 0.5   + 1e-9) * 0.5,   1)
+  lon_malla <- round(-125 + floor((lon - (-125)) / 0.625 + 1e-9) * 0.625, 3)
+  id_celda  <- paste(lat_malla, lon_malla, sep = "_")
+  llave_pt  <- paste(lat_malla, lon_malla)
+
+  idx_s <- match(llave_pt, llave_suelo)
+  if (is.na(idx_s)) stop("Coordenada fuera de la malla de suelo.")
+
+  estado_celda <- as.character(suelo[idx_s, 3])
+  ph_celda     <- as.numeric(suelo[idx_s, 11])
+  poros_c      <- (1 - (as.numeric(suelo[idx_s, 12]) / 2.65)) * 100
+  infilt_c     <- (1 - (as.numeric(suelo[idx_s, 5]) / 100)) * (1 / (1 + 0.05 * as.numeric(suelo[idx_s, 14])))
+  awc_c        <- (0.001 * as.numeric(suelo[idx_s, 6]) + 0.0022 * as.numeric(suelo[idx_s, 7]) + 0.0015 * as.numeric(suelo[idx_s, 5])) * 1000
+  dias         <- dias_por_mes[mes]
+
+  demanda_et      <- pmax(20, 4.5 * temp_actual)
+  reserva_suelo   <- awc_c * 0.20
+  balance_hidrico <- (precip_actual + reserva_suelo) - demanda_et
+
+  suelo_celda_df <- if (exists("aptitud_celda_lookup")) aptitud_celda_lookup[[id_celda]] else NULL
+
+  resultados_15 <- lapply(1:15, function(i) {
+    if (is.null(modelos_GAM_NDVI[[i]])) return(NULL)
+
+    df_sim <- data.frame(
+      GDD                 = pmax(0, pmin(temp_actual, t_techo[i]) - t_base[i]) * dias,
+      Estres_Calor        = pmax(0, temp_actual - t_critica[i]) * dias,
+      Desv_Ph             = abs(ph_celda - ph_optimos[i]),
+      Porosidad_pct       = poros_c,
+      Indice_Infiltracion = infilt_c,
+      AWC                 = awc_c
+    )
+
+    df_sim$pred_GAM_NDVI <- as.numeric(predict(modelos_GAM_NDVI[[i]], newdata = df_sim, type = "response"))
+    df_sim$pred_GAM_NDMI <- as.numeric(predict(modelos_GAM_NDMI[[i]], newdata = df_sim, type = "response"))
+
+    mod_loc_v <- modelos_malla_NDVI[[i]][[id_celda]]
+    mod_loc_m <- modelos_malla_NDMI[[i]][[id_celda]]
+
+    if (!is.null(mod_loc_v)) {
+      ndvi_est        <- as.numeric(predict(mod_loc_v, newdata = df_sim))
+      ndmi_est        <- as.numeric(predict(mod_loc_m, newdata = df_sim))
+      calibrado_local <- TRUE
+    } else {
+      ndvi_est        <- df_sim$pred_GAM_NDVI
+      ndmi_est        <- df_sim$pred_GAM_NDMI
+      calibrado_local <- FALSE
+    }
+
+    score_vigor   <- pmin(100, pmax(0, (ndvi_est - 0.25) / (0.85 - 0.25) * 100))
+    score_humedad <- pmin(100, pmax(0, (ndmi_est - (-0.15)) / (0.40 - (-0.15)) * 100))
+
+    # Pilar 1: Ahorrar agua
+    deficit_mm <- pmax(0, -balance_hidrico)
+    penal_agua <- pmin(35, deficit_mm * 0.30 * (1 - eficiencia_agua_base[i] / 100))
+    score_agua <- pmin(100, pmax(0, 0.60 * eficiencia_agua_base[i] + 0.40 * score_humedad - penal_agua))
+
+    # Pilar 2: Reconstruir suelo
+    apt_11 <- 70
+    if (!is.null(suelo_celda_df) && exists("puente_cultivos")) {
+      k_c <- puente_cultivos$key_clean[puente_cultivos$Cultivo_ID == i]
+      val <- suelo_celda_df$Aptitud_Global[suelo_celda_df$key_cultivo == k_c]
+      if (length(val) > 0 && !is.na(val[1])) apt_11 <- val[1]
+    }
+    penal_ph_suelo <- pmax(0, (df_sim$Desv_Ph - 0.5) * 12)
+    score_suelo    <- pmin(100, pmax(0, 0.55 * reconstruye_suelo_base[i] + 0.45 * apt_11 - penal_ph_suelo))
+
+    # Pilar 3: Ingreso estable y venta cercana
+    en_estado     <- if (exists("datos_zona") && !is.null(datos_zona[[i]])) (estado_celda %in% datos_zona[[i]]$Estado) else FALSE
+    bono_cercania <- ifelse(calibrado_local, 12, ifelse(en_estado, 6, 0))
+    score_ingreso <- pmin(100, pmax(0, 0.50 * score_vigor + 0.40 * ingreso_comercial_base[i] + bono_cercania))
+
+    # Puntaje ponderado final
+    puntaje_bruto <- (w_agua * score_agua) + (w_suelo * score_suelo) + (w_ingreso * score_ingreso)
+    penal_calor   <- pmin(25, df_sim$Estres_Calor * 0.35)
+    puntaje       <- puntaje_bruto - penal_calor
+    if (df_sim$GDD < 45) puntaje <- puntaje * 0.30
+    puntaje <- round(pmin(100, pmax(0, puntaje)), 1)
+
+    decision <- case_when(
+      puntaje >= 70 ~ "1. Muy recomendada",
+      puntaje >= 50 ~ "2. Viable / Aceptable",
+      TRUE          ~ "3. No recomendada"
+    )
+
+    data.frame(
+      Celda              = id_celda,
+      Mes                = mes,
+      Cultivo_ID         = i,
+      Planta             = nombres_cultivos[i],
+      Puntaje_0_100      = puntaje,
+      Score_Agua         = round(score_agua, 1),
+      Score_Suelo        = round(score_suelo, 1),
+      Score_Ingreso      = round(score_ingreso, 1),
+      Decision           = decision,
+      NDVI_est           = round(ndvi_est, 3),
+      NDMI_est           = round(ndmi_est, 3),
+      GDD_mes            = round(df_sim$GDD, 0),
+      Balance_Hidrico_mm = round(balance_hidrico, 1),
+      Calibrada_Aqui     = calibrado_local,
+      stringsAsFactors   = FALSE
+    )
+  })
+
+  bind_rows(resultados_15) %>% arrange(desc(Puntaje_0_100))
+}
+
+plan_completo_celda <- function(lat, lon, mes, temp_actual, precip_actual,
+                                peso_agua = 50, peso_suelo = 30, peso_ingreso = 20,
+                                top_n = 4, umbral_extra_perenne = 60) {
+
+  suma_p        <- peso_agua + peso_suelo + peso_ingreso
+  p_agua_pct    <- round(peso_agua / suma_p * 100)
+  p_suelo_pct   <- round(peso_suelo / suma_p * 100)
+  p_ingreso_pct <- 100 - p_agua_pct - p_suelo_pct
+  w_suelo       <- peso_suelo / suma_p
+
+  ranking_completo <- recomendar_cultivos_actual(
+    lat, lon, mes, temp_actual, precip_actual,
+    peso_agua = peso_agua, peso_suelo = peso_suelo, peso_ingreso = peso_ingreso
+  )
+  id_celda <- ranking_completo$Celda[1]
+
+  suelo_celda <- aptitud_celda_lookup[[id_celda]]
+  if (!is.null(suelo_celda) && nrow(suelo_celda) > 0) {
+    estado_celda <- suelo_celda$Estado[1]
+    suelo_celda  <- suelo_celda %>%
+      group_by(key_cultivo) %>%
+      summarise(Aptitud_Subsuelo = round(mean(Aptitud_Global, na.rm = TRUE), 1), .groups = "drop")
+  } else {
+    estado_celda <- "Desconocido"
+    suelo_celda  <- data.frame(key_cultivo = character(), Aptitud_Subsuelo = numeric())
+  }
+
+  ranking_enriquecido <- ranking_completo %>%
+    left_join(puente_cultivos, by = "Cultivo_ID") %>%
+    left_join(suelo_celda, by = c("key_clean" = "key_cultivo"))
+
+  pilares_prox <- ranking_enriquecido %>%
+    select(key_clean, Puntaje_Prox = Puntaje_0_100)
+
+  ranking_rotables <- ranking_enriquecido %>% filter(!Es_Perenne_Lenoso)
+  ranking_perennes <- ranking_enriquecido %>% filter(Es_Perenne_Lenoso)
+
+  top_plantas <- ranking_rotables %>% slice(1:min(top_n, nrow(ranking_rotables)))
+
+  cat("\n================================================================================\n")
+  cat(sprintf(" PLAN INTEGRAL DE CULTIVOS | CELDA: %s (%s) | MES: %d\n", id_celda, estado_celda, mes))
+  cat(sprintf(" Clima: %.1f °C | %.1f mm lluvia\n", temp_actual, precip_actual))
+  cat(sprintf(" Prioridades: Ahorrar Agua %d%% | Reconstruir Suelo %d%% | Ingreso Estable %d%%\n",
+              p_agua_pct, p_suelo_pct, p_ingreso_pct))
+  cat("================================================================================\n")
+  cat(" SECCIÓN 1: TOP ROTACIONES AGRÍCOLAS SEGÚN TUS PRIORIDADES\n")
+  cat("--------------------------------------------------------------------------------\n")
+
+  planes_lista <- vector("list", nrow(top_plantas))
+
+  for (k in seq_len(nrow(top_plantas))) {
+    p_actual <- top_plantas[k, ]
+    k_clean  <- p_actual$key_clean
+
+    info_cal    <- rotaciones %>% filter(key_clean == !!k_clean)
+    ciclo_txt   <- if (nrow(info_cal) > 0) info_cal$Tipo_Ciclo[1]    else "Anual"
+    siembra_txt <- if (nrow(info_cal) > 0) info_cal$Epoca_Siembra[1] else "-"
+    cosecha_txt <- if (nrow(info_cal) > 0) info_cal$Epoca_Cosecha[1] else "-"
+
+    cat(sprintf("\n>>> ROTACIÓN #%d HOY: %s (Score Total: %.1f/100)\n",
+                k, toupper(p_actual$Planta), p_actual$Puntaje_0_100))
+    cat(sprintf("    Desglose -> Agua: %.0f | Suelo: %.0f | Ingreso: %.0f | Ciclo: %s (%s -> %s)\n",
+                p_actual$Score_Agua, p_actual$Score_Suelo, p_actual$Score_Ingreso,
+                ciclo_txt, siembra_txt, cosecha_txt))
+
+    sucesores <- reglas_transicion %>% filter(key_ant == !!k_clean)
+
+    plan_k <- sucesores %>%
+      left_join(pilares_prox, by = c("key_sig" = "key_clean")) %>%
+      left_join(
+        rotaciones %>% select(key_clean, Siembra_Prox = Epoca_Siembra, Cosecha_Prox = Epoca_Cosecha),
+        by = c("key_sig" = "key_clean")
+      ) %>%
+      mutate(
+        Puntaje_Prox      = ifelse(is.na(Puntaje_Prox), 65, Puntaje_Prox),
+        Bono_Rotacion     = ifelse(Compatibilidad == "Óptima", 15, 7),
+        Bono_Sin_Barbecho = ifelse(grepl("Inmediata", Ventana_Siembra), round(10 + 15 * w_suelo, 1), 3),
+        Score_Sucesion    = round(pmin(100, (Puntaje_Prox * 0.70) + Bono_Rotacion + Bono_Sin_Barbecho), 1),
+        Calendario_Prox   = paste0(Siembra_Prox, " -> ", Cosecha_Prox)
+      ) %>%
+      arrange(desc(Score_Sucesion))
+
+    cat("    -> QUÉ PLANTAR DESPUÉS (ponderado por tus prioridades y menos suelo desnudo):\n")
+    print(as.data.frame(plan_k %>% select(
+      Despues_Plantar = Cultivo_Siguiente,
+      Ventana         = Ventana_Siembra,
+      Calendario_Prox,
+      Score_Sucesion,
+      Razon_Agronomica
+    )), row.names = FALSE)
+
+    planes_lista[[k]] <- plan_k %>%
+      transmute(
+        Opcion_Hoy        = k,
+        Cultivo_Hoy       = p_actual$Planta,
+        Score_Hoy         = p_actual$Puntaje_0_100,
+        Score_Agua_Hoy    = p_actual$Score_Agua,
+        Score_Suelo_Hoy   = p_actual$Score_Suelo,
+        Score_Ingreso_Hoy = p_actual$Score_Ingreso,
+        Siguiente_Cultivo = Cultivo_Siguiente,
+        Ventana_Siembra,
+        Compatibilidad,
+        Score_Sucesion,
+        Razon_Agronomica
+      )
+  }
+
+  extras_viables <- ranking_perennes %>%
+    filter(Puntaje_0_100 >= umbral_extra_perenne) %>%
+    left_join(
+      rotaciones %>% select(key_clean, Epoca_Cosecha, Manejo = Siguiente_Recomendado),
+      by = "key_clean"
+    ) %>%
+    arrange(desc(Puntaje_0_100))
+
+  cat("\n--------------------------------------------------------------------------------\n")
+  cat(" SECCIÓN EXTRA: ÁRBOLES Y CULTIVOS PERENNES VIABLES (Multianual)\n")
+  cat("--------------------------------------------------------------------------------\n")
+
+  if (nrow(extras_viables) > 0) {
+    tabla_extras <- extras_viables %>%
+      transmute(
+        Arbol_o_Perenne = Planta,
+        Score_Total     = Puntaje_0_100,
+        Agua            = Score_Agua,
+        Suelo           = Score_Suelo,
+        Ingreso         = Score_Ingreso,
+        Cosecha         = ifelse(is.na(Epoca_Cosecha), "Verano / Otoño", Epoca_Cosecha),
+        Manejo_Huerto   = ifelse(is.na(Manejo), "Mantener cobertura vegetal entre hileras", Manejo)
+      )
+    print(as.data.frame(tabla_extras), row.names = FALSE)
+  } else {
+    cat(sprintf(" Ningún árbol o perenne supera %.0f/100 con esta combinación de clima y prioridades.\n",
+                umbral_extra_perenne))
+    tabla_extras <- data.frame()
+  }
+
+  cat("================================================================================\n")
+
+  invisible(list(
+    rotaciones      = bind_rows(planes_lista),
+    extras_perennes = tabla_extras
+  ))
+}
+
+cat("\n¡TODO LISTO! Prueba tu consulta con:\n")
+cat("  mi_plan <- plan_completo_celda(lat = 41.5, lon = -93.125, mes = 5, temp_actual = 18.5, precip_actual = 95, peso_agua = 50, peso_suelo = 30, peso_ingreso = 20)\n")
+```
+```{r}
+modelo_bundle <- list(
+  suelo                  = suelo,
+  llave_suelo            = llave_suelo,
+  nombres_cultivos       = nombres_cultivos,
+  ph_optimos             = ph_optimos,
+  t_base                 = t_base,
+  t_techo                = t_techo,
+  t_critica              = t_critica,
+  dias_por_mes           = dias_por_mes,
+  modelos_GAM_NDVI       = modelos_GAM_NDVI,
+  modelos_GAM_NDMI       = modelos_GAM_NDMI,
+  modelos_malla_NDVI     = modelos_malla_NDVI,
+  modelos_malla_NDMI     = modelos_malla_NDMI,
+  aptitud_celda_lookup   = aptitud_celda_lookup,
+  puente_cultivos        = puente_cultivos,
+  rotaciones             = rotaciones,
+  reglas_transicion      = reglas_transicion,
+  datos_zona      
+  = datos_zona,
+  eficiencia_agua_base   = eficiencia_agua_base,
+  reconstruye_suelo_base = reconstruye_suelo_base,
+  ingreso_comercial_base = ingreso_comercial_base
+)
+
+saveRDS(modelo_bundle, "modelo_agro_bundle.rds")
+```
+
