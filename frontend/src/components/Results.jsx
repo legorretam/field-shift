@@ -4,7 +4,7 @@ import { useI18n } from '../i18n.jsx'
 
 const SCORES = ['water', 'soil', 'income']
 
-export default function Results({ status, error, result, request, point, sample, onRetry, onEdit, onPickAgain }) {
+export default function Results({ status, error, result, request, point, sample, onRetry, onEdit, onPickAgain, onSources }) {
   const { t, cell } = useI18n()
   const label = point?.label || (point ? t('map.cellAt', { c: cell(point) }) : t('res.yourField'))
 
@@ -40,7 +40,7 @@ export default function Results({ status, error, result, request, point, sample,
     )
   }
 
-  return <Loaded result={result} request={request} point={point} label={label} sample={sample} onEdit={onEdit} />
+  return <Loaded result={result} request={request} point={point} label={label} sample={sample} onEdit={onEdit} onSources={onSources} />
 }
 
 function Loading({ label }) {
@@ -64,13 +64,19 @@ function Loading({ label }) {
   )
 }
 
-function Loaded({ result, request, point, label, sample, onEdit }) {
-  const { t, lang, cell, monthsLong } = useI18n()
+function Loaded({ result, request, point, label, sample, onEdit, onSources }) {
+  const { t, lang, cell, monthsLong, fmtTemp, fmtRain } = useI18n()
   const { options, perennials } = useMemo(() => shapeResult(result, lang), [result, lang])
   const best = Object.fromEntries(SCORES.map((k) => [k, Math.max(...options.map((o) => o.scores[k] ?? 0))]))
   const w = request
   const weights = w.peso_agua + w.peso_suelo + w.peso_ingreso || 1
   const pct = (v) => Math.round((v / weights) * 100)
+  const month = monthsLong[w.mes - 1]
+  const Month = month.charAt(0).toUpperCase() + month.slice(1)
+  const flagFor = (o) => monthFlag(o, w, weights)
+  // 50 is the model's own line between "viable" and "not recommended".
+  const low = options.length > 0 && options[0].score < 50
+  const lowCold = low && flagFor(options[0]) === 'cold'
 
   return (
     <section className="results screen">
@@ -88,9 +94,9 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
           <h1 className="display">{label}</h1>
           <p className="lede">
             {t('res.lede', {
-              month: monthsLong[w.mes - 1],
-              t: fmt(w.temp_actual),
-              r: fmt(w.precip_actual),
+              month,
+              t: fmtTemp(Number(w.temp_actual)),
+              r: fmtRain(Number(w.precip_actual)),
               w: pct(w.peso_agua),
               s: pct(w.peso_suelo),
               i: pct(w.peso_ingreso),
@@ -105,6 +111,16 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
         <p className="note">{t('res.nowNote')}</p>
       </div>
 
+      {low && (
+        <div className="low-note" role="note">
+          <p className="low-title">{t('res.lowTitle', { month })}</p>
+          <p>{lowCold ? t('res.lowCold', { Month }) : t('res.lowOther')}</p>
+          <button type="button" className="btn btn-quiet" onClick={onEdit}>
+            {t('res.tryMonth')}
+          </button>
+        </div>
+      )}
+
       <ScoreKey />
 
       <ol className="options">
@@ -114,7 +130,7 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
               <span className="option-rank" aria-hidden="true">{i + 1}</span>
               <div className="option-title">
                 <h3 className="option-name">{o.crop}</h3>
-                {i === 0 && <span className="tag tag-best">{t('res.best')}</span>}
+                {i === 0 && !low && <span className="tag tag-best">{t('res.best')}</span>}
               </div>
               <div className="option-score">
                 <div className="fit-ring fit-ring-sm" style={{ '--p': o.score }} role="img" aria-label={t('score.ringAria', { n: o.score })}>
@@ -124,6 +140,9 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
                   </span>
                 </div>
                 <span className="score-cap" aria-hidden="true">{t('score.overall')}</span>
+                {flagFor(o) && (
+                  <span className={`score-flag is-${flagFor(o)}`}>{t(`score.${flagFor(o)}`, { month })}</span>
+                )}
               </div>
               <Meters scores={o.scores} best={best} row={i} />
             </div>
@@ -138,7 +157,8 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
                   <li className="next" key={k}>
                     <div className="next-top">
                       <span className="next-crop">{n.crop}</span>
-                      <span className={`tag ${n.fit.best ? 'tag-fit' : 'tag-current'}`}>{n.fit.label}</span>
+                      {/* Most pairings are the model's best kind; only the weaker ones get a label. */}
+                      {!n.fit.best && <span className="tag tag-current">{n.fit.label}</span>}
                       <span className="next-score" title={t('score.keyFollow')}>
                         <span className="sr-only">{t('score.followAria', { n: n.score })}</span>
                         <span aria-hidden="true">{n.score}</span>
@@ -199,6 +219,11 @@ function Loaded({ result, request, point, label, sample, onEdit }) {
             <span className="muted">, {t('res.srcPower', { c: cell(point) })}</span>
           </li>
           <li>{t('res.srcModel')}</li>
+          <li>
+            <button type="button" className="link-btn" onClick={onSources}>
+              {t('src.all')}
+            </button>
+          </li>
         </ul>
       </footer>
     </section>
@@ -264,7 +289,15 @@ function Meters({ scores, best, row }) {
   )
 }
 
-const fmt = (n) => {
-  const v = Number(n)
-  return Number.isInteger(v) ? String(v) : v.toFixed(1)
+// The model weights the three scores by the farmer's priorities, subtracts up to 25
+// points for heat stress, and cuts the result to 30% when the month is too cold for
+// the crop to grow. The answer doesn't say which happened, so read it off the gap
+// between the weighted scores and the overall score.
+function monthFlag(o, w, weights) {
+  const s = o.scores
+  const expected = (w.peso_agua * s.water + w.peso_suelo * s.soil + w.peso_ingreso * s.income) / weights
+  if (!(expected > 0)) return null
+  if (o.score < expected * 0.5) return 'cold'
+  if (expected - o.score >= 3) return 'heat'
+  return null
 }

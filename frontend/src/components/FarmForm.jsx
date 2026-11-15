@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useI18n } from '../i18n.jsx'
 import { ArrowIcon } from './Icons.jsx'
 
@@ -12,7 +13,7 @@ const isNumber = (v) => v !== '' && v !== null && Number.isFinite(Number(v))
 // Twelve months of this grid square's climate. Each month is a button: picking one
 // sets the planting month and refills the numbers below.
 function MonthStrip({ climate, month, onMonth }) {
-  const { t, months: MONTHS, monthsLong } = useI18n()
+  const { t, months: MONTHS, monthsLong, tempOut, fmtTemp, fmtRain } = useI18n()
   const rainMax = climate ? Math.max(...climate.rain, 1) : 1
   return (
     <div className="month-strip" role="group" aria-label={t('farm.monthGroup')}>
@@ -28,7 +29,7 @@ function MonthStrip({ climate, month, onMonth }) {
             aria-pressed={month === n}
             aria-label={
               climate
-                ? t('farm.monthAria', { month: monthsLong[i], t: Math.round(temp), r: rain })
+                ? t('farm.monthAria', { month: monthsLong[i], t: fmtTemp(temp), r: fmtRain(rain) })
                 : monthsLong[i]
             }
             onClick={() => onMonth(n)}
@@ -36,7 +37,7 @@ function MonthStrip({ climate, month, onMonth }) {
             <span className="month-bar" aria-hidden="true">
               {climate && <span style={{ height: `${Math.max((rain / rainMax) * 100, 3)}%` }} />}
             </span>
-            <span className="month-temp" aria-hidden="true">{climate ? `${Math.round(temp)}°` : ''}</span>
+            <span className="month-temp" aria-hidden="true">{climate ? `${Math.round(tempOut(temp))}°` : ''}</span>
             <span className="month-name" aria-hidden="true">{m}</span>
           </button>
         )
@@ -45,8 +46,11 @@ function MonthStrip({ climate, month, onMonth }) {
   )
 }
 
+// Shows the value in the farmer's units. While the field has focus it keeps exactly
+// what was typed, so a half-typed "50." is not rounded away by the conversion.
 function NumberField({ id, label, unit, value, fromNasa, canReset, onChange, onReset, step }) {
   const { t } = useI18n()
+  const [draft, setDraft] = useState(null)
   return (
     <div className="num-field">
       <label className="field-label" htmlFor={id}>{label}</label>
@@ -56,8 +60,13 @@ function NumberField({ id, label, unit, value, fromNasa, canReset, onChange, onR
           type="number"
           inputMode="decimal"
           step={step}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={draft ?? value}
+          onFocus={() => setDraft(String(value))}
+          onBlur={() => setDraft(null)}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            onChange(e.target.value)
+          }}
           aria-describedby={`${id}-src`}
           required
         />
@@ -82,7 +91,10 @@ function NumberField({ id, label, unit, value, fromNasa, canReset, onChange, onR
 }
 
 export default function FarmForm({ point, climate, conditions, onConditions, onResetField, priorities, onPriorities, onSubmit }) {
-  const { t, cell, monthsLong } = useI18n()
+  const { t, cell, monthsLong, units, setUnits, tempUnit, rainUnit, tempOut, rainOut, tempIn, rainIn } = useI18n()
+  // conditions hold °C and mm, the model's units; the fields show the farmer's units.
+  const shown = (v, out) => (isNumber(v) ? String(out(Number(v))) : '')
+  const typed = (v, into) => (isNumber(v) ? String(into(Number(v))) : v)
   const total = priorities.water + priorities.soil + priorities.income
   const share = (k) => Math.round((priorities[k] / (total || 1)) * 100)
   const { month, temp, rain, source } = conditions
@@ -113,8 +125,18 @@ export default function FarmForm({ point, climate, conditions, onConditions, onR
             <span className="field-label">{t('farm.month')}</span>
             <span className="muted">
               {climate.status === 'loading' && t('farm.loadingClimate')}
-              {climate.status === 'ready' && t('farm.barsKey')}
+              {climate.status === 'ready' && t('farm.barsKey', { u: tempUnit })}
             </span>
+            <div className="seg-toggle units-toggle" role="group" aria-label={t('farm.units')}>
+              {[
+                ['imperial', '°F, in'],
+                ['metric', '°C, mm'],
+              ].map(([k, label]) => (
+                <button key={k} type="button" aria-pressed={units === k} onClick={() => setUnits(k)}>
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <MonthStrip climate={data} month={month} onMonth={(m) => onConditions({ month: m })} />
 
@@ -122,23 +144,23 @@ export default function FarmForm({ point, climate, conditions, onConditions, onR
             <NumberField
               id="temp"
               label={t('farm.temp', { month: monthsLong[month - 1] })}
-              unit="°C"
+              unit={tempUnit}
               step="0.1"
-              value={temp}
+              value={shown(temp, tempOut)}
               fromNasa={source.temp === 'nasa'}
               canReset={!!data}
-              onChange={(v) => onConditions({ temp: v })}
+              onChange={(v) => onConditions({ temp: typed(v, tempIn) })}
               onReset={() => onResetField('temp')}
             />
             <NumberField
               id="rain"
               label={t('farm.rain', { month: monthsLong[month - 1] })}
-              unit="mm"
-              step="1"
-              value={rain}
+              unit={rainUnit}
+              step={units === 'imperial' ? '0.1' : '1'}
+              value={shown(rain, rainOut)}
               fromNasa={source.rain === 'nasa'}
               canReset={!!data}
-              onChange={(v) => onConditions({ rain: v })}
+              onChange={(v) => onConditions({ rain: typed(v, rainIn) })}
               onReset={() => onResetField('rain')}
             />
           </div>

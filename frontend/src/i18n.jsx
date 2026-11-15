@@ -60,10 +60,11 @@ const DICT = {
     'farm.month': 'Month',
     'farm.monthGroup': 'Planting month',
     'farm.loadingClimate': 'Loading NASA climate…',
-    'farm.barsKey': 'Bars: rain per month. Numbers: average °C',
-    'farm.monthAria': '{month}: {t} degrees and {r} millimeters of rain on average',
+    'farm.barsKey': 'Bars: rain per month. Numbers: average {u}',
+    'farm.monthAria': '{month}: {t} and {r} of rain on average',
+    'farm.units': 'Units',
     'farm.temp': 'Average temperature in {month}',
-    'farm.rain': 'Rain in {month}',
+    'farm.rain': 'Rain in {month}, monthly total',
     'farm.nasaAvg': 'NASA POWER average',
     'farm.yours': 'Your value',
     'farm.useNasa': 'Use NASA average',
@@ -96,10 +97,16 @@ const DICT = {
     'res.sampleRest':
       'The app is set to VITE_API_URL=sample, so every answer is the built-in example for a square in central Iowa in May, not the field you picked.',
     'res.lede':
-      'Planting in {month}, at {t} °C on average with {r} mm of rain. Weighted {w}% water, {s}% soil, {i}% income.',
+      'Planting in {month}, at {t} on average with {r} of rain. Weighted {w}% water, {s}% soil, {i}% income.',
     'res.nowTitle': 'What to plant now',
     'res.nowNote': 'Ranked by overall score for this square and month. Under each crop, the crops that fit best after it.',
     'res.best': 'Best match',
+    'res.lowTitle': 'Nothing scores well for planting in {month} here.',
+    'res.lowCold': '{Month} is too cold for these crops to grow, so the model cuts every score. Try a month in the growing season.',
+    'res.lowOther': 'Even the best option scores below 50, the model’s line for a viable choice. Try another month or other priorities.',
+    'res.tryMonth': 'Try another month',
+    'score.cold': 'Too cold in {month}',
+    'score.heat': 'Heat stress in {month}',
     'res.then': 'Then plant',
     'res.perTitle': 'Or switch to a perennial',
     'res.perNote': 'Orchards and berry plantings stay for years instead of rotating every season.',
@@ -114,6 +121,40 @@ const DICT = {
     'err.network': 'Could not reach the model server. Check your connection and try again.',
     'err.status': 'The model server answered {n}.',
 
+    'src.open': 'Data sources',
+    'src.all': 'All data sources',
+    'src.title': 'Data sources',
+    'src.lede': 'Where the data behind Field Shift comes from.',
+    'src.close': 'Close',
+    'src.via': 'Accessed through',
+    'src.and': ' and ',
+    'src.repo': 'Code, data and how the model works:',
+    'src.group.nasa': 'NASA satellite and climate data',
+    'src.group.land': 'Soil, land and crops on the ground',
+    'src.group.crops': 'What each crop needs',
+    'src.group.model': 'The crop model',
+    'src.group.map': 'Map, search and tools',
+    'src.mod09': 'NDVI (plant vigor), NDMI (plant moisture) and the share of bare soil in each grid square, month by month. These train the crop model.',
+    'src.power': 'Monthly rain, temperature and soil moisture on a grid of about 55 km. The averages fill in the weather on the planting step.',
+    'src.gibs': 'The satellite base map and the vegetation layer on the map.',
+    'src.ssurgo': 'Soil properties for each grid square: texture, organic matter, water capacity, pH, erosion and infiltration.',
+    'src.cdl': 'Which of the 15 crops grows in each grid square.',
+    'src.dem': 'Elevation of each grid square.',
+    'src.plants': 'Growing requirements for each crop.',
+    'src.nssh': 'Definitions and ranges for the soil properties.',
+    'src.ecocrop': 'Temperature and soil ranges for each crop.',
+    'src.r': 'Language the model is written in.',
+    'src.mgcv': 'The generalized additive models (GAM) that predict NDVI and NDMI for each crop.',
+    'src.plumber': 'Turns the model into the web API the site calls.',
+    'src.render': 'Hosts the model API.',
+    'src.esri': 'Place labels, borders and the graphic map style.',
+    'src.states': 'State outlines that mask everything outside the lower 48.',
+    'src.photon': 'Place search.',
+    'src.openmeteo': 'Backup place search.',
+    'src.bdc': 'County names for a picked grid square.',
+    'src.libs': 'The website and its map.',
+    'src.claude': 'Helped write code, design and text.',
+
     'score.overall': 'Overall score',
     'score.of100': 'of 100',
     'score.ringAria': 'Overall score {n} of 100',
@@ -125,7 +166,7 @@ const DICT = {
     'score.followAria': 'Follow-up score {n} of 100',
     'score.keyTitle': 'How to read the scores',
     'score.keyOverall':
-      'The water, soil and income scores, weighted by your priorities and adjusted for how well this month’s weather suits planting here.',
+      'The water, soil and income scores weighted by your priorities, minus a penalty for heat stress. When the month is too cold for the crop to grow, it is cut to 30%.',
     'score.keyParts': 'How each crop does on its own. Higher is better: less water, healthier soil, more income.',
     'score.keyParts.title': 'Water, soil, income',
     'score.keyFollow': 'How well the next crop follows this one in the rotation.',
@@ -178,10 +219,11 @@ const DICT = {
     'farm.month': 'Mes',
     'farm.monthGroup': 'Mes de siembra',
     'farm.loadingClimate': 'Cargando el clima de NASA…',
-    'farm.barsKey': 'Barras: lluvia por mes. Números: °C promedio',
-    'farm.monthAria': '{month}: {t} grados y {r} milímetros de lluvia en promedio',
+    'farm.barsKey': 'Barras: lluvia por mes. Números: {u} promedio',
+    'farm.monthAria': '{month}: {t} y {r} de lluvia en promedio',
+    'farm.units': 'Unidades',
     'farm.temp': 'Temperatura promedio en {month}',
-    'farm.rain': 'Lluvia en {month}',
+    'farm.rain': 'Lluvia en {month}, total del mes',
     'farm.nasaAvg': 'Promedio de NASA POWER',
     'farm.yours': 'Tu valor',
     'farm.useNasa': 'Usar promedio de NASA',
@@ -215,10 +257,16 @@ const DICT = {
     'res.sampleRest':
       'La app tiene VITE_API_URL=sample, así que todas las respuestas son el ejemplo de un cuadro en el centro de Iowa en mayo, no el campo que elegiste.',
     'res.lede':
-      'Siembra en {month}, con {t} °C en promedio y {r} mm de lluvia. Peso: {w}% agua, {s}% suelo, {i}% ingreso.',
+      'Siembra en {month}, con {t} en promedio y {r} de lluvia. Peso: {w}% agua, {s}% suelo, {i}% ingreso.',
     'res.nowTitle': 'Qué sembrar ahora',
     'res.nowNote': 'Ordenados por puntaje general para este cuadro y este mes. Debajo de cada uno, los cultivos que mejor le siguen.',
     'res.best': 'Mejor opción',
+    'res.lowTitle': 'Nada sale bien para sembrar en {month} aquí.',
+    'res.lowCold': '{Month} es demasiado frío para que estos cultivos crezcan, así que el modelo recorta todos los puntajes. Prueba un mes de la temporada de cultivo.',
+    'res.lowOther': 'Ni la mejor opción llega a 50, la línea del modelo para una opción viable. Prueba otro mes u otras prioridades.',
+    'res.tryMonth': 'Probar otro mes',
+    'score.cold': 'Muy frío en {month}',
+    'score.heat': 'Estrés por calor en {month}',
     'res.then': 'Después siembra',
     'res.perTitle': 'O cambia a un cultivo perenne',
     'res.perNote': 'Los huertos y las plantaciones de frutos rojos se quedan por años en lugar de rotar cada temporada.',
@@ -233,6 +281,40 @@ const DICT = {
     'err.network': 'No pudimos conectar con el servidor del modelo. Revisa tu conexión e intenta de nuevo.',
     'err.status': 'El servidor del modelo respondió {n}.',
 
+    'src.open': 'Fuentes de datos',
+    'src.all': 'Todas las fuentes de datos',
+    'src.title': 'Fuentes de datos',
+    'src.lede': 'De dónde salen los datos que usa Field Shift.',
+    'src.close': 'Cerrar',
+    'src.via': 'Consultado en',
+    'src.and': ' y ',
+    'src.repo': 'Código, datos y cómo funciona el modelo:',
+    'src.group.nasa': 'Datos satelitales y climáticos de NASA',
+    'src.group.land': 'Suelo, terreno y cultivos en campo',
+    'src.group.crops': 'Qué necesita cada cultivo',
+    'src.group.model': 'El modelo de cultivos',
+    'src.group.map': 'Mapa, búsqueda y herramientas',
+    'src.mod09': 'NDVI (vigor de la planta), NDMI (humedad de la planta) y el porcentaje de suelo desnudo en cada cuadro, mes por mes. Con esto se entrena el modelo.',
+    'src.power': 'Lluvia, temperatura y humedad del suelo mensuales en una cuadrícula de unos 55 km. Los promedios llenan el clima en el paso de siembra.',
+    'src.gibs': 'El mapa satelital de fondo y la capa de vegetación.',
+    'src.ssurgo': 'Propiedades del suelo de cada cuadro: textura, materia orgánica, capacidad de agua, pH, erosión e infiltración.',
+    'src.cdl': 'Cuál de los 15 cultivos se siembra en cada cuadro.',
+    'src.dem': 'Altitud de cada cuadro.',
+    'src.plants': 'Requerimientos de cada cultivo.',
+    'src.nssh': 'Definiciones y rangos de las propiedades del suelo.',
+    'src.ecocrop': 'Rangos de temperatura y suelo de cada cultivo.',
+    'src.r': 'Lenguaje en el que está escrito el modelo.',
+    'src.mgcv': 'Los modelos aditivos generalizados (GAM) que predicen NDVI y NDMI para cada cultivo.',
+    'src.plumber': 'Convierte el modelo en la API web que consulta la página.',
+    'src.render': 'Aloja la API del modelo.',
+    'src.esri': 'Nombres de lugares, fronteras y el estilo de mapa gráfico.',
+    'src.states': 'Contornos de los estados para ocultar todo lo que no es de los 48 estados contiguos.',
+    'src.photon': 'Búsqueda de lugares.',
+    'src.openmeteo': 'Búsqueda de lugares de respaldo.',
+    'src.bdc': 'Nombre del condado del cuadro elegido.',
+    'src.libs': 'La página web y su mapa.',
+    'src.claude': 'Ayudó a escribir código, diseño y textos.',
+
     'score.overall': 'Puntaje general',
     'score.of100': 'de 100',
     'score.ringAria': 'Puntaje general {n} de 100',
@@ -244,7 +326,7 @@ const DICT = {
     'score.followAria': 'Puntaje de sucesión {n} de 100',
     'score.keyTitle': 'Cómo leer los puntajes',
     'score.keyOverall':
-      'Los puntajes de agua, suelo e ingreso, ponderados con tus prioridades y ajustados según qué tan bueno es el clima de este mes para sembrar aquí.',
+      'Los puntajes de agua, suelo e ingreso ponderados con tus prioridades, menos una penalización por estrés de calor. Cuando el mes es demasiado frío para que el cultivo crezca, se recorta al 30%.',
     'score.keyParts':
       'Cómo le va a cada cultivo por sí solo. Más alto es mejor: menos agua, suelo más sano, más ingreso.',
     'score.keyParts.title': 'Agua, suelo, ingreso',
@@ -254,6 +336,20 @@ const DICT = {
 }
 
 const STORE_KEY = 'field-shift-lang'
+const UNITS_KEY = 'field-shift-units'
+
+// Units the farmer reads and types in. The model always works in °C and mm, so
+// values are converted on the way in and out. US farmers default to °F and inches.
+function savedUnits(lang) {
+  try {
+    const u = localStorage.getItem(UNITS_KEY)
+    if (u === 'metric' || u === 'imperial') return u
+  } catch {
+    // storage off
+  }
+  return lang === 'es' ? 'metric' : 'imperial'
+}
+const round = (x, d) => Math.round(x * 10 ** d) / 10 ** d
 const LangContext = createContext(null)
 
 function savedLang() {
@@ -264,13 +360,28 @@ function savedLang() {
   }
 }
 
-function build(lang, setLang) {
+function build(lang, setLang, units, setUnits) {
   const d = DICT[lang]
   const t = (key, vars = {}) =>
     String(d[key] ?? DICT.en[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? '').toString())
   // Spanish writes west as O (oeste).
   const west = (s) => (lang === 'es' ? s.replace(/ W\b/g, ' O') : s)
+  const imperial = units === 'imperial'
+  const u = {
+    units,
+    setUnits,
+    tempUnit: imperial ? '°F' : '°C',
+    rainUnit: imperial ? 'in' : 'mm',
+    // Model units (°C, mm) to what the farmer sees, and back.
+    tempOut: (c) => (imperial ? round((c * 9) / 5 + 32, 1) : round(c, 1)),
+    rainOut: (mm) => (imperial ? round(mm / 25.4, 1) : Math.round(mm)),
+    tempIn: (v) => (imperial ? ((v - 32) * 5) / 9 : v),
+    rainIn: (v) => (imperial ? v * 25.4 : v),
+  }
+  u.fmtTemp = (c) => `${u.tempOut(c)} ${u.tempUnit}`
+  u.fmtRain = (mm) => `${u.rainOut(mm)} ${u.rainUnit}`
   return {
+    ...u,
     lang,
     setLang,
     t,
@@ -283,6 +394,14 @@ function build(lang, setLang) {
 
 export function LangProvider({ children }) {
   const [lang, setLang] = useState(savedLang)
+  const [units, setUnits] = useState(() => savedUnits(savedLang()))
+  useEffect(() => {
+    try {
+      localStorage.setItem(UNITS_KEY, units)
+    } catch {
+      // storage off: the choice lasts for this visit
+    }
+  }, [units])
   useEffect(() => {
     document.documentElement.lang = lang
     try {
@@ -291,7 +410,7 @@ export function LangProvider({ children }) {
       // private mode or storage off: the choice lasts for this visit
     }
   }, [lang])
-  const value = useMemo(() => build(lang, setLang), [lang])
+  const value = useMemo(() => build(lang, setLang, units, setUnits), [lang, units])
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>
 }
 

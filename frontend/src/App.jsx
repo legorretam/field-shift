@@ -4,6 +4,7 @@ import FieldMap from './components/FieldMap.jsx'
 import FarmForm from './components/FarmForm.jsx'
 import Results from './components/Results.jsx'
 import { useI18n } from './i18n.jsx'
+import Sources from './components/Sources.jsx'
 
 const STEPS = ['field', 'farm', 'compare']
 
@@ -11,10 +12,13 @@ const NASA = { temp: 'nasa', rain: 'nasa' }
 
 export default function App() {
   const { t, lang, setLang } = useI18n()
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const [step, setStep] = useState('field')
   const [point, setPoint] = useState(null) // { lat, lon, label }
   const [climate, setClimate] = useState({ status: 'idle', data: null }) // data: { temp: [12], rain: [12] }
-  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  // April: the main spring planting window across most of the lower 48. Starting on
+  // today's month would show off-season results to anyone testing in fall or winter.
+  const [month, setMonth] = useState(4)
   const [userValues, setUserValues] = useState({ temp: '', rain: '' })
   const [source, setSource] = useState(NASA) // per field: 'nasa' (autofilled) or 'user' (typed)
   const [priorities, setPriorities] = useState({ water: 50, soil: 30, income: 20 })
@@ -129,7 +133,9 @@ export default function App() {
           </ol>
         </nav>
         <div className="topbar-side">
-          <span className="topbar-data">{t('top.data')}</span>
+          <button type="button" className="topbar-data link-btn" onClick={() => setSourcesOpen(true)}>
+            {t('src.open')}
+          </button>
           {usingSample && (
             <span className="sample-flag" title={t('top.sampleTitle')}>
               {t('top.sample')}
@@ -179,9 +185,12 @@ export default function App() {
             onRetry={runAnalysis}
             onEdit={() => setStep('farm')}
             onPickAgain={() => setStep('field')}
+            onSources={() => setSourcesOpen(true)}
           />
         )}
       </main>
+
+      <Sources open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
     </div>
   )
 }
