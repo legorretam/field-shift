@@ -139,6 +139,12 @@ export default function Sources({ open, onClose }) {
               </ul>
             </section>
           ))}
+          <p className="src-foot">
+            {t('src.repo')}{' '}
+            <a href="https://github.com/legorretam/field-shift" target="_blank" rel="noreferrer">
+              github.com/legorretam/field-shift
+            </a>
+          </p>
         </div>
       </div>
     </dialog>
