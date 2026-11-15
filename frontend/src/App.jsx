@@ -5,6 +5,7 @@ import FarmForm from './components/FarmForm.jsx'
 import Results from './components/Results.jsx'
 import { useI18n } from './i18n.jsx'
 import Sources from './components/Sources.jsx'
+import { outOfRange } from './lib.js'
 
 const STEPS = ['field', 'farm', 'compare']
 
@@ -186,6 +187,9 @@ export default function App() {
             onEdit={() => setStep('farm')}
             onPickAgain={() => setStep('field')}
             onSources={() => setSourcesOpen(true)}
+            extrapolated={
+              request ? outOfRange({ temp: request.temp_actual, rain: request.precip_actual }, climate.data) : []
+            }
           />
         )}
       </main>

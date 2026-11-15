@@ -79,3 +79,30 @@ export const sameCell = (a, b) => !!a && !!b && a.lat === b.lat && a.lon === b.l
 // A grid cell center with the precision the grid actually has: "39.0° N, 101.875° W".
 export const formatCell = ({ lat, lon }) =>
   `${Math.abs(lat).toFixed(1)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}° ${lon >= 0 ? 'E' : 'W'}`
+
+// How far a typed value may sit beyond this square's monthly averages (2001-2025)
+// before the model is extrapolating past what it learned from.
+// Temperature: 10 °C below the coldest or above the warmest month.
+// Rain: 50% below the driest or above the wettest month (a fixed mm margin is
+// too tight for wet places and too loose for dry ones).
+export const RANGE_MARGIN = { temp: 10, rain: 0.5 }
+
+export function rangeLimits(k, data) {
+  const lo = Math.min(...data[k])
+  const hi = Math.max(...data[k])
+  return k === 'rain'
+    ? [lo * (1 - RANGE_MARGIN.rain), hi * (1 + RANGE_MARGIN.rain)]
+    : [lo - RANGE_MARGIN.temp, hi + RANGE_MARGIN.temp]
+}
+
+// Which of temp and rain fall outside the limits above.
+// `data` is the square's climate: { temp: [12], rain: [12] }. Returns e.g. ['temp'].
+export function outOfRange(values, data) {
+  if (!data) return []
+  return ['temp', 'rain'].filter((k) => {
+    const v = values[k]
+    if (v === '' || v === null || v === undefined || !Number.isFinite(Number(v))) return false
+    const [lo, hi] = rangeLimits(k, data)
+    return Number(v) < lo || Number(v) > hi
+  })
+}

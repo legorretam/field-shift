@@ -4,7 +4,7 @@ import { useI18n } from '../i18n.jsx'
 
 const SCORES = ['water', 'soil', 'income']
 
-export default function Results({ status, error, result, request, point, sample, onRetry, onEdit, onPickAgain, onSources }) {
+export default function Results({ status, error, result, request, point, sample, onRetry, onEdit, onPickAgain, onSources, extrapolated = [] }) {
   const { t, cell } = useI18n()
   const label = point?.label || (point ? t('map.cellAt', { c: cell(point) }) : t('res.yourField'))
 
@@ -40,7 +40,7 @@ export default function Results({ status, error, result, request, point, sample,
     )
   }
 
-  return <Loaded result={result} request={request} point={point} label={label} sample={sample} onEdit={onEdit} onSources={onSources} />
+  return <Loaded result={result} request={request} point={point} label={label} sample={sample} onEdit={onEdit} onSources={onSources} extrapolated={extrapolated} />
 }
 
 function Loading({ label }) {
@@ -64,7 +64,7 @@ function Loading({ label }) {
   )
 }
 
-function Loaded({ result, request, point, label, sample, onEdit, onSources }) {
+function Loaded({ result, request, point, label, sample, onEdit, onSources, extrapolated }) {
   const { t, lang, cell, monthsLong, fmtTemp, fmtRain } = useI18n()
   const { options, perennials } = useMemo(() => shapeResult(result, lang), [result, lang])
   const best = Object.fromEntries(SCORES.map((k) => [k, Math.max(...options.map((o) => o.scores[k] ?? 0))]))
@@ -110,6 +110,20 @@ function Loaded({ result, request, point, label, sample, onEdit, onSources }) {
         <h2 className="h2">{t('res.nowTitle')}</h2>
         <p className="note">{t('res.nowNote')}</p>
       </div>
+
+      {extrapolated.length > 0 && (
+        <div className="range-warn" role="note">
+          <p className="range-warn-title">{t('res.extraTitle')}</p>
+          <p>
+            {t('res.extraBody', {
+              what: t(extrapolated.length > 1 ? 'res.extra.both' : `res.extra.${extrapolated[0]}`),
+            })}
+          </p>
+          <button type="button" className="btn btn-quiet" onClick={onEdit}>
+            {t('res.edit')}
+          </button>
+        </div>
+      )}
 
       {low && (
         <div className="low-note" role="note">

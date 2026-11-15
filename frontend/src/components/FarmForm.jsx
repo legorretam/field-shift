@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useI18n } from '../i18n.jsx'
+import { RANGE_MARGIN, outOfRange } from '../lib.js'
 import { ArrowIcon } from './Icons.jsx'
 
 const PRIORITIES = [
@@ -91,7 +92,7 @@ function NumberField({ id, label, unit, value, fromNasa, canReset, onChange, onR
 }
 
 export default function FarmForm({ point, climate, conditions, onConditions, onResetField, priorities, onPriorities, onSubmit }) {
-  const { t, cell, monthsLong, units, setUnits, tempUnit, rainUnit, tempOut, rainOut, tempIn, rainIn } = useI18n()
+  const { t, cell, monthsLong, units, setUnits, tempUnit, rainUnit, tempOut, rainOut, tempIn, rainIn, fmtTemp, fmtRain } = useI18n()
   // conditions hold °C and mm, the model's units; the fields show the farmer's units.
   const shown = (v, out) => (isNumber(v) ? String(out(Number(v))) : '')
   const typed = (v, into) => (isNumber(v) ? String(into(Number(v))) : v)
@@ -100,6 +101,14 @@ export default function FarmForm({ point, climate, conditions, onConditions, onR
   const { month, temp, rain, source } = conditions
   const data = climate.data
   const ready = isNumber(temp) && isNumber(rain) && total > 0
+  // Typed values far outside this square's monthly averages: the model would extrapolate.
+  const outside = outOfRange({ temp, rain }, data)
+  const imperial = units === 'imperial'
+  const margin = {
+    temp: `${imperial ? (RANGE_MARGIN.temp * 9) / 5 : RANGE_MARGIN.temp} ${tempUnit}`,
+    rain: `${Math.round(RANGE_MARGIN.rain * 100)}%`,
+  }
+  const span = (k, fmt) => ({ lo: fmt(Math.min(...data[k])), hi: fmt(Math.max(...data[k])), m: margin[k] })
 
   return (
     <section className="form-screen screen">
@@ -164,6 +173,15 @@ export default function FarmForm({ point, climate, conditions, onConditions, onR
               onReset={() => onResetField('rain')}
             />
           </div>
+
+          {outside.length > 0 && (
+            <div className="range-warn" role="status">
+              <p className="range-warn-title">{t('farm.outTitle')}</p>
+              {outside.includes('temp') && <p>{t('farm.outTemp', span('temp', fmtTemp))}</p>}
+              {outside.includes('rain') && <p>{t('farm.outRain', span('rain', fmtRain))}</p>}
+              <p>{t('farm.outEnd')}</p>
+            </div>
+          )}
 
           <p className="note">
             {climate.status === 'missing'

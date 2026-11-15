@@ -2775,3 +2775,31 @@ input[type='range']:active::-webkit-slider-thumb {
 .score-flag.is-heat {
   color: #8f4a1f;
 }
+
+/* Typed weather far outside this square's NASA averages: the model is extrapolating */
+.range-warn {
+  margin: 4px 0 8px;
+  padding: 14px 18px;
+  border: 1px solid rgba(180, 98, 44, 0.45);
+  border-radius: 12px;
+  background: rgba(180, 98, 44, 0.08);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  display: grid;
+  gap: 4px;
+  max-width: 78ch;
+}
+.range-warn-title {
+  font-weight: 650;
+  color: #8f4a1f;
+}
+.results .range-warn {
+  margin: -8px 0 24px;
+  padding: 18px 22px;
+  border-radius: 14px;
+}
+.range-warn .btn {
+  justify-self: start;
+  margin-top: 10px;
+}
